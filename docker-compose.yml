@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: auction_postgres
+    environment:
+      POSTGRES_DB: auction_db
+      POSTGRES_USER: auction_user
+      POSTGRES_PASSWORD: auction_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auction_user -d auction_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: auction_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://auction_user:auction_password@postgres:5432/auction_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build: ./frontend
+    container_name: auction_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
