@@ -6,6 +6,39 @@ This document describes the database setup and schema for the auction e-commerce
 
 The system uses PostgreSQL as the database with SQLAlchemy ORM and Alembic for migrations. The database schema includes all necessary tables for a complete auction e-commerce platform.
 
+
+
+First, clone the repository and start Docker containers:
+
+```bash
+git clone https://github.com/svastiks/auction-ecom-system-eecs-4413.git
+```
+
+Start Docker containers
+```bash
+docker-compose up --build
+```
+* Backend will be available at: http://localhost:8000
+* PostgreSQL will be available at: localhost:5434
+
+
+Check running containers
+```bash
+docker ps
+```
+Expected output:
+```bash
+CONTAINER ID   IMAGE                                   STATUS       PORTS
+f381795e7b9f   auction-ecom-system-eecs-4413-backend  Up           0.0.0.0:8000->8000/tcp
+abe4291b927d   postgres:15                             Up           0.0.0.0:5434->5432/tcp
+```
+
+Enter the backend container
+```bash
+docker exec -it auction_backend /bin/bash
+```
+
+
 ## Database Schema
 
 ### Core Tables
