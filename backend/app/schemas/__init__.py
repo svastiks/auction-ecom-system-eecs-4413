@@ -1,28 +1,59 @@
-# Import all schemas to ensure they are registered
-from .auth import (
-    UserSignUp, UserLogin, Token, PasswordForgot, PasswordReset, 
-    PasswordResetConfirm, UserResponse as AuthUserResponse, AuthResponse, MessageResponse
+from app.schemas.user import UserRef, UserResponse, UserUpdate
+from app.schemas.catalogue import (
+    Category,
+    CategoryCreate,
+    CategoryUpdate,
+    CatalogueItem,
+    CatalogueItemCreate,
+    CatalogueItemUpdate,
+    ItemImage,
+    ItemImageCreate,
 )
-from .user import UserUpdate, UserResponse
-from .address import AddressCreate, AddressUpdate, AddressResponse, AddressListResponse
+from app.schemas.auction import (
+    Auction,
+    AuctionCreate,
+    AuctionUpdate,
+    AuctionItemSummary,
+    AuctionSearchRequest,
+    AuctionSearchResponse,
+    Bid,
+    BidCreate,
+    BidRequest,
+    BidResponse,
+    AuctionEndResponse,
+    AuctionStatus,
+    AuctionType,
+)
+
+# Rebuild models to resolve forward references
+Category.model_rebuild()
+CatalogueItem.model_rebuild()
+Auction.model_rebuild()
+Bid.model_rebuild()
 
 __all__ = [
-    # Auth schemas
-    "UserSignUp",
-    "UserLogin", 
-    "Token",
-    "PasswordForgot",
-    "PasswordReset",
-    "PasswordResetConfirm",
-    "AuthUserResponse",
-    "AuthResponse",
-    "MessageResponse",
-    # User schemas
-    "UserUpdate",
+    "UserRef",
     "UserResponse",
-    # Address schemas
-    "AddressCreate",
-    "AddressUpdate", 
-    "AddressResponse",
-    "AddressListResponse",
+    "UserUpdate",
+    "Category",
+    "CategoryCreate",
+    "CategoryUpdate",
+    "CatalogueItem",
+    "CatalogueItemCreate",
+    "CatalogueItemUpdate",
+    "ItemImage",
+    "ItemImageCreate",
+    "Auction",
+    "AuctionCreate",
+    "AuctionUpdate",
+    "AuctionItemSummary",
+    "AuctionSearchRequest",
+    "AuctionSearchResponse",
+    "Bid",
+    "BidCreate",
+    "BidRequest",
+    "BidResponse",
+    "AuctionEndResponse",
+    "AuctionStatus",
+    "AuctionType",
 ]

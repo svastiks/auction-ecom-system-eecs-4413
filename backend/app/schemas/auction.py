@@ -1,10 +1,10 @@
-from pydantic import BaseModel, Field, validator
+from __future__ import annotations
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
 from decimal import Decimal
 from enum import Enum
-
 
 class AuctionType(str, Enum):
     FORWARD = "FORWARD"
@@ -25,10 +25,12 @@ class AuctionBase(BaseModel):
     end_time: datetime = Field(..., description="Auction end time")
     status: AuctionStatus = Field(AuctionStatus.SCHEDULED, description="Auction status")
 
-    @validator('end_time')
-    def end_time_must_be_after_start_time(cls, v, values):
-        if 'start_time' in values and v <= values['start_time']:
-            raise ValueError('End time must be after start time')
+    @field_validator("end_time")
+    @classmethod
+    def end_time_must_be_after_start_time(cls, v, info):
+        start_time = info.data.get("start_time")
+        if start_time and v <= start_time:
+            raise ValueError("End time must be after start time")
         return v
 
 
@@ -58,7 +60,7 @@ class Bid(BidBase):
     auction_id: UUID
     bidder_id: UUID
     placed_at: datetime
-    bidder: Optional['User'] = None
+    bidder: Optional["UserRef"] = None
 
     class Config:
         from_attributes = True
@@ -71,8 +73,8 @@ class Auction(AuctionBase):
     winning_bidder_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
-    item: Optional['CatalogueItem'] = None
-    winning_bidder: Optional['User'] = None
+    item: Optional["CatalogueItem"] = None
+    winning_bidder: Optional["UserRef"] = None
     bids: List[Bid] = []
     current_highest_bid: Optional[Decimal] = None
     current_highest_bidder_id: Optional[UUID] = None
@@ -82,9 +84,7 @@ class Auction(AuctionBase):
         from_attributes = True
 
 
-# UC2: Browse Catalogue Schemas
 class AuctionItemSummary(BaseModel):
-    """Summary view for browsing auctioned items (UC2.2)"""
     auction_id: UUID
     item_id: UUID
     title: str
@@ -93,7 +93,7 @@ class AuctionItemSummary(BaseModel):
     auction_type: str
     remaining_time_seconds: Optional[int]
     status: str
-    item_images: List[str] = []  # URLs of item images
+    item_images: List[str] = []
     seller_name: str
     category_name: Optional[str] = None
     current_highest_bidder_id: Optional[UUID] = None
@@ -104,31 +104,29 @@ class AuctionItemSummary(BaseModel):
 
 
 class AuctionSearchRequest(BaseModel):
-    """Request model for UC2.1: Item Search"""
     keyword: str = Field(..., min_length=1, description="Search keyword")
     category_id: Optional[UUID] = Field(None, description="Filter by category")
     min_price: Optional[Decimal] = Field(None, description="Minimum current bid price")
     max_price: Optional[Decimal] = Field(None, description="Maximum current bid price")
-    status: Optional[AuctionStatus] = Field(AuctionStatus.ACTIVE, description="Auction status filter")
+    status: Optional[AuctionStatus] = Field(
+        AuctionStatus.ACTIVE, description="Auction status filter"
+    )
     skip: int = Field(0, ge=0, description="Number of items to skip")
     limit: int = Field(20, ge=1, le=100, description="Number of items to return")
 
 
 class AuctionSearchResponse(BaseModel):
-    """Response model for UC2.1: Item Search"""
     items: List[AuctionItemSummary]
     total_count: int
     has_more: bool
 
 
 class BidRequest(BaseModel):
-    """Request model for UC3: Bidding"""
     auction_id: UUID = Field(..., description="ID of the auction to bid on")
     amount: Decimal = Field(..., description="Bid amount")
 
 
 class BidResponse(BaseModel):
-    """Response model for UC3: Bidding"""
     bid_id: UUID
     auction_id: UUID
     amount: Decimal
@@ -140,7 +138,6 @@ class BidResponse(BaseModel):
 
 
 class AuctionEndResponse(BaseModel):
-    """Response model when auction ends (UC3)"""
     auction_id: UUID
     status: str
     winning_bid_id: Optional[UUID]
@@ -148,8 +145,3 @@ class AuctionEndResponse(BaseModel):
     final_price: Optional[Decimal]
     message: str
     can_pay: bool = False
-
-
-# Update forward references
-Auction.model_rebuild()
-Bid.model_rebuild()
