@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, desc, func
 from typing import List, Optional
 from uuid import UUID
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from app.core.database import get_db
@@ -57,7 +57,7 @@ def place_bid(
         raise HTTPException(status_code=400, detail="Auction is not active")
     
     # Check if auction has ended
-    if datetime.utcnow() > auction.end_time:
+    if datetime.now(timezone.utc) > auction.end_time:
         raise HTTPException(status_code=400, detail="Auction has ended")
     
     # UC3: Check if user has already bid on this item in this session
@@ -105,7 +105,7 @@ def place_bid(
     db.refresh(new_bid)
     
     # Calculate remaining time
-    remaining_time = int((auction.end_time - datetime.utcnow()).total_seconds())
+    remaining_time = int((auction.end_time - datetime.now(timezone.utc)).total_seconds())
     remaining_time = max(0, remaining_time)
     
     # Get bidder info for response
@@ -138,7 +138,7 @@ def get_auction_status(auction_id: UUID, db: Session = Depends(get_db)):
     if not auction:
         raise HTTPException(status_code=404, detail="Auction not found")
     
-    current_time = datetime.utcnow()
+    current_time = datetime.now(timezone.utc)
     
     # Check if auction has ended
     if current_time > auction.end_time and auction.status == AuctionStatus.ACTIVE:
@@ -268,7 +268,7 @@ def search_auctioned_items(
             current_bidder_name = None
         
         # Calculate remaining time
-        remaining_time = int((auction.end_time - datetime.utcnow()).total_seconds())
+        remaining_time = int((auction.end_time - datetime.now(timezone.utc)).total_seconds())
         remaining_time = max(0, remaining_time) if auction.status == AuctionStatus.ACTIVE else None
         
         # Get item images
@@ -337,7 +337,7 @@ def select_item_for_bidding(auction_id: UUID, db: Session = Depends(get_db)):
         current_bidder_name = None
     
     # Calculate remaining time
-    remaining_time = int((auction.end_time - datetime.utcnow()).total_seconds())
+    remaining_time = int((auction.end_time - datetime.now(timezone.utc)).total_seconds())
     remaining_time = max(0, remaining_time)
     
     # Get item images
@@ -391,7 +391,7 @@ def get_auction_item_details(auction_id: UUID, db: Session = Depends(get_db)):
     ).scalar() or auction.starting_price
     
     # Calculate remaining time
-    remaining_time = int((auction.end_time - datetime.utcnow()).total_seconds())
+    remaining_time = int((auction.end_time - datetime.now(timezone.utc)).total_seconds())
     remaining_time = max(0, remaining_time) if auction.status == AuctionStatus.ACTIVE else None
     
     # Get item images

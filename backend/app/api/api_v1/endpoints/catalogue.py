@@ -13,7 +13,8 @@ from app.schemas.catalogue import (
     CatalogueItem as CatalogueItemSchema,
     CatalogueItemCreate,
     CatalogueItemUpdate,
-    ItemImage as ItemImageSchema
+    ItemImage as ItemImageSchema,
+    ItemImageCreate
 )
 
 router = APIRouter()
