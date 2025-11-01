@@ -5,6 +5,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from app.core.database import get_db
+from app.core.dependencies import get_current_user
 from app.models.catalogue import Category, CatalogueItem, ItemImage
 from app.schemas.catalogue import (
     Category as CategorySchema,
@@ -29,7 +30,7 @@ def get_categories(
     db: Session = Depends(get_db)
 ):
     """Get all categories with optional filtering"""
-    query = db.query(Category).options(joinedload(Category.subcategories))
+    query = db.query(Category)
     
     if parent_id is not None:
         query = query.filter(Category.parent_category_id == parent_id)
@@ -41,10 +42,7 @@ def get_categories(
 @router.get("/categories/{category_id}", response_model=CategorySchema)
 def get_category(category_id: UUID, db: Session = Depends(get_db)):
     """Get a specific category by ID"""
-    category = db.query(Category).options(
-        joinedload(Category.subcategories),
-        joinedload(Category.catalogue_items)
-    ).filter(Category.category_id == category_id).first()
+    category = db.query(Category).filter(Category.category_id == category_id).first()
     
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
@@ -184,7 +182,11 @@ def get_catalogue_item(item_id: UUID, db: Session = Depends(get_db)):
 
 
 @router.post("/items", response_model=CatalogueItemSchema)
-def create_catalogue_item(item: CatalogueItemCreate, db: Session = Depends(get_db)):
+def create_catalogue_item(
+    item: CatalogueItemCreate,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Create a new catalogue item"""
     # Check if category exists if specified
     if item.category_id:
@@ -192,8 +194,9 @@ def create_catalogue_item(item: CatalogueItemCreate, db: Session = Depends(get_d
         if not category:
             raise HTTPException(status_code=400, detail="Category not found")
     
-    # Create the item
+    # Create the item with seller_id from current user
     item_data = item.dict(exclude={'images'})
+    item_data['seller_id'] = current_user.user_id
     db_item = CatalogueItem(**item_data)
     db.add(db_item)
     db.flush()  # Get the item_id
