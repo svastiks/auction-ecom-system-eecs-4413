@@ -71,10 +71,10 @@ def main():
         run_command("alembic current", "Showing current database revision")
         
     elif command == "init-db":
-        print("🚀 Initializing database...")
+        print(" Initializing database...")
         if run_command("alembic upgrade head", "Creating all database tables"):
             print("\nDatabase initialized successfully!")
-            print("📋 Tables created:")
+            print(" Tables created:")
             print("  - users, addresses, auth_sessions, password_reset_tokens")
             print("  - categories, catalogue_items, item_images")
             print("  - auctions, bids")
