@@ -22,7 +22,7 @@ RUN chmod +x entrypoint.sh
 # Copy application code
 COPY . .
 
-# Ensure entrypoint script is executable (COPY . . may have overwritten it)
+# Ensure entrypoint script is executable (double check)
 RUN chmod +x entrypoint.sh
 
 # Expose port
