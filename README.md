@@ -1,43 +1,58 @@
-# Setup for Auction E-commerce System
+# Auction E-commerce System
 
-This document describes the database setup and schema for the auction e-commerce system.
+## Tech Stack
 
-## Overview
+- Pyhton/FastAPI --> **Backend services**
+- Postgres --> **Database**
+- Alembic --> **Database Migrations**
+- OpenAPI/Swagger Docs --> **API Documentation**
+- React, Typecript, TailwindCSS --> **Frontend service**
 
-The system uses PostgreSQL as the database with SQLAlchemy ORM and Alembic for migrations. The database schema includes all necessary tables for a complete auction e-commerce platform.
+## Setup Instructions
 
-
-
-First, clone the repository and start Docker containers:
-
+**Step 1: Clone the repository and cd into backend:**
 ```bash
 git clone https://github.com/svastiks/auction-ecom-system-eecs-4413.git
-```
 
-Start Docker containers
+cd backend
+```
+**Pre-req for step 2:**
+- `brew install docker`
+- Then, download Docker application: https://www.docker.com/products/docker-desktop
+
+**Finally, step 2: Start the Docker containers**
+Note: The Dockerfile is built such that it will install the Python dependencies and run the migration to populate the database (so no manual SQL scrip is needed)
+
 ```bash
 docker-compose up --build
 ```
-* Backend will be available at: http://localhost:8000
-* PostgreSQL will be available at: localhost:5434
+* Backend will be available at: http://127.0.0.1:8000
+* PostgreSQL will be available at: http://localhost:5434. Config is as follows:
+```
+ POSTGRES_DB: auction_db
+ POSTGRES_USER: auction_user
+ POSTGRES_PASSWORD: auction_password
 
+ DATABASE_URL = "postgresql://auction_user:auction_password@localhost:5434/auction_db"
+```
 
-Check running containers
+Step 3: Ensure container are running
 ```bash
 docker ps
 ```
-Expected output:
+Expected output (along those lines):
 ```bash
 CONTAINER ID   IMAGE                                   STATUS       PORTS
 f381795e7b9f   auction-ecom-system-eecs-4413-backend  Up           0.0.0.0:8000->8000/tcp
 abe4291b927d   postgres:15                             Up           0.0.0.0:5434->5432/tcp
 ```
 
-Enter the backend container
-```bash
-docker exec -it auction_backend /bin/bash
-```
+## API Endpoints
 
+Once the application is up and running this url for our API documentation: http://localhost:8000/docs#
+
+Screenshot below for reference:
+<img width="2161" height="5140" alt="latest_endpoints" src="https://github.com/user-attachments/assets/786507a0-4a6c-4b69-99b5-ba841ddd4952" />
 
 ## Database Schema
 
@@ -63,30 +78,6 @@ docker exec -it auction_backend /bin/bash
    - `payments` - Payment processing
    - `receipts` - Order receipts
    - `shipments` - Shipping information
-
-5. **Event Logging**
-   - `event_log` - System event tracking
-
-## Setup Instructions
-
-### Prerequisites
-
-1. PostgreSQL database running on localhost:5434
-2. Database: `auction_db`
-3. User: `auction_user`
-4. Password: `auction_password`
-
-### Installation
-
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. Initialize the database:
-   ```bash
-   python db_commands.py init-db
-   ```
 
 ### Database Commands
 
@@ -130,13 +121,6 @@ alembic history
 alembic current
 ```
 
-## Database Configuration
-
-The database connection is configured in `app/core/config.py`:
-
-```python
-DATABASE_URL = "postgresql://auction_user:auction_password@localhost:5434/auction_db"
-```
 
 ## Model Structure
 
