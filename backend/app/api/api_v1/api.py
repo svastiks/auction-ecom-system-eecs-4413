@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.api_v1.endpoints import auth, users, catalogue, auction
+from app.api.api_v1.endpoints import auth, users, catalogue, auction, orders
 
 api_router = APIRouter()
 
@@ -14,6 +14,9 @@ api_router.include_router(catalogue.router, prefix="/catalogue", tags=["catalogu
 
 # Include auction endpoints
 api_router.include_router(auction.router, prefix="/auction", tags=["auction"])
+
+# Include orders endpoints
+api_router.include_router(orders.router, prefix="/orders", tags=["orders"])
 
 @api_router.get("/")
 async def api_root():
