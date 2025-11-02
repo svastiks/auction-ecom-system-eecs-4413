@@ -24,6 +24,22 @@ from app.schemas.auction import (
     AuctionStatus,
     AuctionType,
 )
+from app.schemas.order import (
+    OrderResponse,
+    OrderDetail,
+    OrderCreate,
+    PaymentRequest,
+    PaymentResponse,
+    PaymentResponseDetail,
+    ReceiptResponse,
+    ShipmentResponse,
+    ShippingMethodUpdate,
+    PayResponse,
+    ShippingMethod,
+    OrderStatus as OrderStatusEnum,
+    PaymentStatus,
+    ShipmentStatus,
+)
 
 # ---------------------------------------------------------------------------
 # Backward compatibility aliases
@@ -41,6 +57,11 @@ CategoryRead.model_rebuild()
 CatalogueItemRead.model_rebuild()
 Auction.model_rebuild()
 Bid.model_rebuild()
+
+# Import order schemas to rebuild forward refs
+from app.schemas.order import OrderDetail, PaymentResponseDetail
+OrderDetail.model_rebuild()
+PaymentResponseDetail.model_rebuild()
 
 __all__ = [
     "UserRef",
@@ -69,4 +90,18 @@ __all__ = [
     "AuctionEndResponse",
     "AuctionStatus",
     "AuctionType",
+    "OrderResponse",
+    "OrderDetail",
+    "OrderCreate",
+    "PaymentRequest",
+    "PaymentResponse",
+    "PaymentResponseDetail",
+    "ReceiptResponse",
+    "ShipmentResponse",
+    "ShippingMethodUpdate",
+    "PayResponse",
+    "ShippingMethod",
+    "OrderStatusEnum",
+    "PaymentStatus",
+    "ShipmentStatus",
 ]
