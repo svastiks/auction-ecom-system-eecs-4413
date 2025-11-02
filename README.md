@@ -6,10 +6,26 @@
 - Postgres --> **Database**
 - Alembic --> **Database Migrations**
 - OpenAPI/Swagger Docs --> **API Documentation**
-- React, Typecript, TailwindCSS --> **Frontend service**
+- React, TypeScript, TailwindCSS --> **Frontend service**
+
+## Note for TA/Grader:
+```
+- The server and client-side implementations submitted as a zip file on eclass --> ✅
+
+- A readme file with installation instructions --> this is the README file with instructions ✅
+
+- A script file with curl or Postman test cases; the test cases should test for robustness (user wrong
+inputs) as well --> postman collection submitted with the zip ✅
+
+- A SQL file that populates the database (if needed) --> Not needed, we are running migration
+during the DockerFile setup, which will initialize the database (populate), the setup instructions
+below will elaborate ✅
+
+- An updated design document that explains any changes in the design, testcases, project plan, and
+team meeting logs ( You can go beyond 12 pages now) --> submitted on eclass ✅
+```
 
 ## Setup Instructions
-
 **Step 1: Clone the repository and cd into backend:**
 ```bash
 git clone https://github.com/svastiks/auction-ecom-system-eecs-4413.git
@@ -18,10 +34,10 @@ cd backend
 ```
 **Pre-req for step 2:**
 - `brew install docker`
-- Then, download Docker application: https://www.docker.com/products/docker-desktop
+- Then, download the Docker application: https://www.docker.com/products/docker-desktop
 
 **Finally, step 2: Start the Docker containers**
-Note: The Dockerfile is built such that it will install the Python dependencies and run the migration to populate the database (so no manual SQL scrip is needed)
+Note: The Dockerfile is built such that it will install the Python dependencies and run the migration to populate the database (so no manual SQL script is needed)
 
 ```bash
 docker-compose up --build
@@ -36,7 +52,7 @@ docker-compose up --build
  DATABASE_URL = "postgresql://auction_user:auction_password@localhost:5434/auction_db"
 ```
 
-Step 3: Ensure container are running
+Step 3: Ensure containers are running
 ```bash
 docker ps
 ```
@@ -49,7 +65,7 @@ abe4291b927d   postgres:15                             Up           0.0.0.0:5434
 
 ## API Endpoints
 
-Once the application is up and running this url for our API documentation: http://localhost:8000/docs#
+Once the application is up and running, this URL for our API documentation: http://localhost:8000/docs#
 
 Screenshot below for reference:
 <img width="2161" height="5140" alt="latest_endpoints" src="https://github.com/user-attachments/assets/786507a0-4a6c-4b69-99b5-ba841ddd4952" />
