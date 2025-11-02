@@ -25,11 +25,8 @@ class CategoryUpdate(BaseModel):
     parent_category_id: Optional[UUID] = None
 
 
-class Category(CategoryBase):
+class CategoryRead(CategoryBase):
     category_id: UUID
-    parent_category: Optional["Category"] = None
-    subcategories: List["Category"] = []
-    catalogue_items: List["CatalogueItem"] = []
 
     class Config:
         from_attributes = True
@@ -84,15 +81,12 @@ class CatalogueItemUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
-class CatalogueItem(CatalogueItemBase):
+class CatalogueItemRead(CatalogueItemBase):
     item_id: UUID
     seller_id: UUID
     created_at: datetime
     updated_at: datetime
-    seller: Optional["UserRef"] = None
-    category: Optional[Category] = None
     images: List[ItemImage] = []
-    auction: Optional["Auction"] = None
 
     class Config:
         from_attributes = True

@@ -8,62 +8,56 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.catalogue import Category, CatalogueItem, ItemImage
 from app.schemas.catalogue import (
-    Category as CategorySchema,
+    CategoryRead,
     CategoryCreate,
     CategoryUpdate,
-    CatalogueItem as CatalogueItemSchema,
+    CatalogueItemRead,
     CatalogueItemCreate,
     CatalogueItemUpdate,
     ItemImage as ItemImageSchema,
-    ItemImageCreate
+    ItemImageCreate,
 )
 
 router = APIRouter()
 
-
-# Category endpoints
-@router.get("/categories", response_model=List[CategorySchema])
+@router.get("/categories", response_model=List[CategoryRead])
 def get_categories(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     parent_id: Optional[UUID] = Query(None, description="Filter by parent category ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    """Get all categories with optional filtering"""
     query = db.query(Category)
-    
     if parent_id is not None:
         query = query.filter(Category.parent_category_id == parent_id)
-    
+
     categories = query.offset(skip).limit(limit).all()
     return categories
 
 
-@router.get("/categories/{category_id}", response_model=CategorySchema)
+@router.get("/categories/{category_id}", response_model=CategoryRead)
 def get_category(category_id: UUID, db: Session = Depends(get_db)):
-    """Get a specific category by ID"""
     category = db.query(Category).filter(Category.category_id == category_id).first()
-    
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
-    
     return category
 
 
-@router.post("/categories", response_model=CategorySchema)
+@router.post("/categories", response_model=CategoryRead)
 def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
-    """Create a new category"""
-    # Check if parent category exists if specified
     if category.parent_category_id:
-        parent = db.query(Category).filter(Category.category_id == category.parent_category_id).first()
+        parent = (
+            db.query(Category)
+            .filter(Category.category_id == category.parent_category_id)
+            .first()
+        )
         if not parent:
             raise HTTPException(status_code=400, detail="Parent category not found")
-    
-    # Check if category name already exists
+
     existing = db.query(Category).filter(Category.name == category.name).first()
     if existing:
         raise HTTPException(status_code=400, detail="Category name already exists")
-    
+
     db_category = Category(**category.dict())
     db.add(db_category)
     db.commit()
@@ -71,39 +65,46 @@ def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
     return db_category
 
 
-@router.put("/categories/{category_id}", response_model=CategorySchema)
+@router.put("/categories/{category_id}", response_model=CategoryRead)
 def update_category(
     category_id: UUID,
     category_update: CategoryUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    """Update a category"""
     category = db.query(Category).filter(Category.category_id == category_id).first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
-    
-    # Check if new name conflicts with existing categories
+
     if category_update.name and category_update.name != category.name:
-        existing = db.query(Category).filter(
-            and_(Category.name == category_update.name, Category.category_id != category_id)
-        ).first()
+        existing = (
+            db.query(Category)
+            .filter(
+                and_(
+                    Category.name == category_update.name,
+                    Category.category_id != category_id,
+                )
+            )
+            .first()
+        )
         if existing:
             raise HTTPException(status_code=400, detail="Category name already exists")
-    
-    # Check if parent category exists if specified
+
     if category_update.parent_category_id:
-        parent = db.query(Category).filter(Category.category_id == category_update.parent_category_id).first()
+        parent = (
+            db.query(Category)
+            .filter(Category.category_id == category_update.parent_category_id)
+            .first()
+        )
         if not parent:
             raise HTTPException(status_code=400, detail="Parent category not found")
-    
+
     update_data = category_update.dict(exclude_unset=True)
     for field, value in update_data.items():
         setattr(category, field, value)
-    
+
     db.commit()
     db.refresh(category)
     return category
-
 
 @router.delete("/categories/{category_id}")
 def delete_category(category_id: UUID, db: Session = Depends(get_db)):
@@ -126,9 +127,7 @@ def delete_category(category_id: UUID, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Category deleted successfully"}
 
-
-# Catalogue Item endpoints
-@router.get("/items", response_model=List[CatalogueItemSchema])
+@router.get("/items", response_model=List[CatalogueItemRead])
 def get_catalogue_items(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -136,52 +135,34 @@ def get_catalogue_items(
     seller_id: Optional[UUID] = Query(None, description="Filter by seller ID"),
     search: Optional[str] = Query(None, description="Search in title, description, and keywords"),
     active_only: bool = Query(True, description="Show only active items"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    """Get catalogue items with optional filtering and search"""
     query = db.query(CatalogueItem).options(
         joinedload(CatalogueItem.category),
         joinedload(CatalogueItem.seller),
-        joinedload(CatalogueItem.images)
+        joinedload(CatalogueItem.images),
     )
-    
+
     if category_id:
         query = query.filter(CatalogueItem.category_id == category_id)
-    
     if seller_id:
         query = query.filter(CatalogueItem.seller_id == seller_id)
-    
     if active_only:
-        query = query.filter(CatalogueItem.is_active == True)
-    
+        query = query.filter(CatalogueItem.is_active.is_(True))
+
     if search:
-        search_filter = or_(
-            CatalogueItem.title.ilike(f"%{search}%"),
-            CatalogueItem.description.ilike(f"%{search}%"),
-            CatalogueItem.keywords.ilike(f"%{search}%")
+        query = query.filter(
+            or_(
+                CatalogueItem.title.ilike(f"%{search}%"),
+                CatalogueItem.description.ilike(f"%{search}%"),
+                CatalogueItem.keywords.ilike(f"%{search}%"),
+            )
         )
-        query = query.filter(search_filter)
-    
+
     items = query.offset(skip).limit(limit).all()
     return items
 
-
-@router.get("/items/{item_id}", response_model=CatalogueItemSchema)
-def get_catalogue_item(item_id: UUID, db: Session = Depends(get_db)):
-    """Get a specific catalogue item by ID"""
-    item = db.query(CatalogueItem).options(
-        joinedload(CatalogueItem.category),
-        joinedload(CatalogueItem.seller),
-        joinedload(CatalogueItem.images)
-    ).filter(CatalogueItem.item_id == item_id).first()
-    
-    if not item:
-        raise HTTPException(status_code=404, detail="Catalogue item not found")
-    
-    return item
-
-
-@router.post("/items", response_model=CatalogueItemSchema)
+@router.post("/items", response_model=CatalogueItemRead)
 def create_catalogue_item(
     item: CatalogueItemCreate,
     current_user = Depends(get_current_user),
@@ -211,8 +192,7 @@ def create_catalogue_item(
     db.refresh(db_item)
     return db_item
 
-
-@router.put("/items/{item_id}", response_model=CatalogueItemSchema)
+@router.put("/items/{item_id}", response_model=CatalogueItemRead)
 def update_catalogue_item(
     item_id: UUID,
     item_update: CatalogueItemUpdate,
@@ -237,7 +217,6 @@ def update_catalogue_item(
     db.refresh(item)
     return item
 
-
 @router.delete("/items/{item_id}")
 def delete_catalogue_item(item_id: UUID, db: Session = Depends(get_db)):
     """Delete a catalogue item"""
@@ -248,7 +227,6 @@ def delete_catalogue_item(item_id: UUID, db: Session = Depends(get_db)):
     db.delete(item)
     db.commit()
     return {"message": "Catalogue item deleted successfully"}
-
 
 # Image endpoints
 @router.post("/items/{item_id}/images", response_model=ItemImageSchema)
@@ -269,7 +247,6 @@ def add_item_image(
     db.refresh(db_image)
     return db_image
 
-
 @router.delete("/images/{image_id}")
 def delete_item_image(image_id: UUID, db: Session = Depends(get_db)):
     """Delete an item image"""
@@ -281,3 +258,20 @@ def delete_item_image(image_id: UUID, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Image deleted successfully"}
 
+@router.get("/items/{item_id}", response_model=CatalogueItemRead)
+def get_catalogue_item(item_id: UUID, db: Session = Depends(get_db)):
+    item = (
+        db.query(CatalogueItem)
+        .options(
+            joinedload(CatalogueItem.category),
+            joinedload(CatalogueItem.seller),
+            joinedload(CatalogueItem.images),
+        )
+        .filter(CatalogueItem.item_id == item_id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Catalogue item not found")
+    return item
+
+    

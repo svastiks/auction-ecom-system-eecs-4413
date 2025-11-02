@@ -1,9 +1,9 @@
 from app.schemas.user import UserRef, UserResponse, UserUpdate
 from app.schemas.catalogue import (
-    Category,
+    CategoryRead,
     CategoryCreate,
     CategoryUpdate,
-    CatalogueItem,
+    CatalogueItemRead,
     CatalogueItemCreate,
     CatalogueItemUpdate,
     ItemImage,
@@ -25,9 +25,20 @@ from app.schemas.auction import (
     AuctionType,
 )
 
-# Rebuild models to resolve forward references
-Category.model_rebuild()
-CatalogueItem.model_rebuild()
+# ---------------------------------------------------------------------------
+# Backward compatibility aliases
+# ---------------------------------------------------------------------------
+
+# These aliases prevent older imports from breaking while giving you time
+# to update endpoints to use CategoryRead / CatalogueItemRead explicitly.
+Category = CategoryRead
+CatalogueItem = CatalogueItemRead
+
+# ---------------------------------------------------------------------------
+# Optional: rebuild forward refs for models that use self-references
+# ---------------------------------------------------------------------------
+CategoryRead.model_rebuild()
+CatalogueItemRead.model_rebuild()
 Auction.model_rebuild()
 Bid.model_rebuild()
 
@@ -36,9 +47,11 @@ __all__ = [
     "UserResponse",
     "UserUpdate",
     "Category",
+    "CategoryRead",
     "CategoryCreate",
     "CategoryUpdate",
     "CatalogueItem",
+    "CatalogueItemRead",
     "CatalogueItemCreate",
     "CatalogueItemUpdate",
     "ItemImage",
