@@ -42,6 +42,7 @@ class Address(Base):
     state_region = Column(String(120))
     postal_code = Column(String(30), nullable=False)
     country = Column(String(120), nullable=False)
+    phone = Column(String(30), nullable=True)  # Phone number for this address (optional)
     is_default_shipping = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())

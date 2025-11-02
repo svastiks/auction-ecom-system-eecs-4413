@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List
 from app.core.database import get_db
 from app.core.dependencies import get_current_active_user
 from app.services.user_service import UserService
+from app.services.bid_service import BidService
 from app.schemas.user import UserUpdate, UserResponse
 from app.schemas.address import AddressCreate, AddressUpdate, AddressResponse, AddressListResponse
+from app.schemas.bid import MyBidsResponse
 from app.models.user import User
 
 router = APIRouter()
@@ -53,7 +55,7 @@ async def get_user_addresses(
         total=len(addresses)
     )
 
-@router.post("/me/addresses", response_model=AddressResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/me/addresses", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_user_address(
     address_data: AddressCreate,
     current_user: User = Depends(get_current_active_user),
@@ -66,15 +68,24 @@ async def create_user_address(
     - **street_line2**: Street address line 2 (optional)
     - **city**: City
     - **state_region**: State or region (optional)
-    - **postal_code**: Postal code
+    - **postal_code**: Postal code/ZIP (validated format)
     - **country**: Country
+    - **phone**: Phone number for this address (optional, validated format)
     - **is_default_shipping**: Set as default shipping address
+    
+    **Alternate A1**: Invalid fields will return validation errors with details.
+    **Alternate A2**: If set as default, previous default addresses are automatically unset.
+    
+    Returns confirmation message: "The shipping address has been updated."
     """
     user_service = UserService(db)
     address = await user_service.create_address(current_user.user_id, address_data)
-    return address
+    return {
+        "message": "The shipping address has been updated.",
+        "address": address
+    }
 
-@router.put("/me/addresses/{address_id}", response_model=AddressResponse)
+@router.put("/me/addresses/{address_id}", response_model=dict)
 async def update_user_address(
     address_id: str,
     address_update: AddressUpdate,
@@ -89,13 +100,22 @@ async def update_user_address(
     - **street_line2**: Street address line 2 (optional)
     - **city**: City
     - **state_region**: State or region (optional)
-    - **postal_code**: Postal code
+    - **postal_code**: Postal code/ZIP (validated format)
     - **country**: Country
+    - **phone**: Phone number for this address (optional, validated format)
     - **is_default_shipping**: Set as default shipping address
+    
+    **Alternate A1**: Invalid fields will return validation errors with details.
+    **Alternate A2**: If set as default, previous default addresses are automatically unset.
+    
+    Returns confirmation message: "The shipping address has been updated."
     """
     user_service = UserService(db)
     address = await user_service.update_address(current_user.user_id, address_id, address_update)
-    return address
+    return {
+        "message": "The shipping address has been updated.",
+        "address": address
+    }
 
 @router.delete("/me/addresses/{address_id}", response_model=dict)
 async def delete_user_address(
@@ -111,3 +131,27 @@ async def delete_user_address(
     user_service = UserService(db)
     await user_service.delete_address(current_user.user_id, address_id)
     return {"message": "Address deleted successfully"}
+
+@router.get("/me/bids", response_model=MyBidsResponse)
+async def get_my_bids(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all bids for the current user with status information.
+    
+    Returns a paginated list of bids with:
+    - Item title
+    - Last bid amount
+    - Current highest bid
+    - Time left (if auction is active)
+    - Status: LEADING (user's bid is highest), OUTBID (user has been outbid), ENDED (auction ended), WON (user won)
+    
+    **Alternate A1**: If user has no bids, returns empty list with total=0.
+    **Alternate A2**: Ended auctions show status ENDED with auction end time.
+    """
+    bid_service = BidService(db)
+    bids_response = await bid_service.get_my_bids(current_user.user_id, page=page, page_size=page_size)
+    return bids_response
