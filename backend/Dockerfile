@@ -12,11 +12,22 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy database commands script
+COPY db_commands.py .
+
+# Copy entrypoint script and make it executable
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
 # Copy application code
 COPY . .
+
+# Ensure entrypoint script is executable (double check)
+RUN chmod +x entrypoint.sh
 
 # Expose port
 EXPOSE 8000
 
-# Command to run the application
+# Use entrypoint script to run migrations before starting the app
+ENTRYPOINT ["/bin/bash", "entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
