@@ -40,6 +40,12 @@ from app.schemas.order import (
     PaymentStatus,
     ShipmentStatus,
 )
+from app.schemas.bid import MyBidItem, MyBidsResponse
+from app.schemas.address import AddressCreate, AddressUpdate, AddressResponse, AddressListResponse
+from app.schemas.auth import (
+    UserSignUp, UserLogin, Token, PasswordForgot, PasswordReset, 
+    PasswordResetConfirm, UserResponse as AuthUserResponse, AuthResponse, MessageResponse
+)
 
 # ---------------------------------------------------------------------------
 # Backward compatibility aliases
@@ -104,4 +110,22 @@ __all__ = [
     "OrderStatusEnum",
     "PaymentStatus",
     "ShipmentStatus",
+    # My Bids schemas
+    "MyBidItem",
+    "MyBidsResponse",
+    # Address schemas
+    "AddressCreate",
+    "AddressUpdate",
+    "AddressResponse",
+    "AddressListResponse",
+    # Auth schemas
+    "UserSignUp",
+    "UserLogin",
+    "Token",
+    "PasswordForgot",
+    "PasswordReset",
+    "PasswordResetConfirm",
+    "AuthUserResponse",
+    "AuthResponse",
+    "MessageResponse",
 ]
