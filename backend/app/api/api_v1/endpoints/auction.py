@@ -6,6 +6,7 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 from uuid import UUID
 from decimal import Decimal
+from datetime import timezone
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
@@ -41,7 +42,7 @@ def get_remaining_time(auction: Auction) -> Optional[int]:
     """Calculate remaining time in seconds for an auction."""
     if auction.status != AuctionStatus.ACTIVE:
         return None
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if auction.end_time <= now:
         return 0
     return int((auction.end_time - now).total_seconds())
@@ -82,7 +83,7 @@ async def create_auction(
         )
     
     # Check if start time is in the past
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if auction_data.start_time <= now:
         # Auto-activate if start time has passed
         status_value = AuctionStatus.ACTIVE
@@ -333,7 +334,7 @@ async def place_bid(
         )
     
     # Check if auction has ended
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if auction.end_time <= now:
         auction.status = AuctionStatus.ENDED
         db.commit()
@@ -493,7 +494,7 @@ async def get_auction_status(
         )
     
     # Check if auction should be automatically ended
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if auction.status == AuctionStatus.ACTIVE and auction.end_time <= now:
         auction.status = AuctionStatus.ENDED
         
