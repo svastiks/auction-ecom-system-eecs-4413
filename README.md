@@ -25,6 +25,16 @@ below will elaborate ✅
 team meeting logs ( You can go beyond 12 pages now) --> submitted on eclass ✅
 ```
 
+## Postman Testing instructions
+
+The postman collection is attached in the zip file, that .json will need to be imported into your postman in order to view it.
+
+The collection automatically sets many variables as collection variables. For example, the accessToken, addressId, categoryId etc.
+A javascript script was added under the scripts section in order to set these variables and will help with testing.
+
+To give a working example, when the /auth/login endpoint is hit we generate an access_token, this is required to run AUTH protected endpoints.
+We set the access_token as accessToken and ensure a smooth testing experience is provided (avoiding the need to manually set it)
+
 ## Setup Instructions
 **Step 1: Clone the repository and cd into backend:**
 ```bash
