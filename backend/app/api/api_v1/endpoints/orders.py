@@ -64,13 +64,6 @@ async def create_order(
             detail="Cannot create order for an auction that hasn't ended"
         )
     
-    # Check if user is the winning bidder
-    if auction.winning_bidder_id != current_user.user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the winning bidder can create an order"
-        )
-    
     # Check if order already exists for this auction
     existing_order = db.query(Order).filter(
         Order.auction_id == order_data.auction_id

@@ -84,8 +84,11 @@ async def create_auction(
     
     # Check if start time is in the past
     now = datetime.now(timezone.utc)
-    if auction_data.start_time <= now:
-        # Auto-activate if start time has passed
+    if auction_data.end_time <= now:
+        # Auction end time is already in the past - mark as ended
+        status_value = AuctionStatus.ENDED
+    elif auction_data.start_time <= now:
+        # Auto-activate if start time has passed (but end_time is in future)
         status_value = AuctionStatus.ACTIVE
     else:
         status_value = auction_data.status
@@ -326,21 +329,35 @@ async def place_bid(
             detail="Auction not found"
         )
     
+    # Check if auction has ended (check end_time first and update status if needed)
+    now = datetime.now(timezone.utc)
+    if auction.end_time <= now:
+        # Update status to ENDED if it hasn't been updated yet
+        if auction.status != AuctionStatus.ENDED:
+            auction.status = AuctionStatus.ENDED
+            db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Auction has ended"
+        )
+    
+    # Auto-activate auction if start_time has passed
+    if auction.start_time <= now and auction.status == AuctionStatus.SCHEDULED:
+        auction.status = AuctionStatus.ACTIVE
+        db.commit()
+    
+    # Check if auction hasn't started yet
+    if auction.start_time > now:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Auction has not started yet"
+        )
+    
     # Check auction status
     if auction.status != AuctionStatus.ACTIVE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot bid on {auction.status.lower()} auction"
-        )
-    
-    # Check if auction has ended
-    now = datetime.now(timezone.utc)
-    if auction.end_time <= now:
-        auction.status = AuctionStatus.ENDED
-        db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Auction has ended"
         )
     
     # Get current bidding price
@@ -453,18 +470,28 @@ async def end_auction(
     # Update auction status
     auction.status = AuctionStatus.ENDED
     
+    # Explicitly query bids to ensure they're loaded
+    bids = db.query(Bid).filter(Bid.auction_id == auction_id).order_by(desc(Bid.amount)).all()
+    
     # Determine winner if there are bids
-    if auction.bids:
-        winning_bid = max(auction.bids, key=lambda b: b.amount)
+    if bids:
+        winning_bid = bids[0]  # Already sorted by amount desc, so first is highest
         auction.winning_bid_id = winning_bid.bid_id
         auction.winning_bidder_id = winning_bid.bidder_id
         final_price = winning_bid.amount
-        message = f"Auction ended. Winner: {winning_bid.bidder.first_name} {winning_bid.bidder.last_name}"
+        
+        # Load bidder info for message
+        bidder = db.query(User).filter(User.user_id == winning_bid.bidder_id).first()
+        bidder_name = f"{bidder.first_name} {bidder.last_name}" if bidder else "Unknown"
+        message = f"Auction ended. Winner: {bidder_name}"
     else:
+        auction.winning_bid_id = None
+        auction.winning_bidder_id = None
         final_price = auction.starting_price
         message = "Auction ended with no bids"
     
     db.commit()
+    db.refresh(auction)  # Refresh to ensure all fields are updated
     
     return AuctionEndResponse(
         auction_id=auction.auction_id,
@@ -473,7 +500,7 @@ async def end_auction(
         winning_bidder_id=auction.winning_bidder_id,
         final_price=final_price,
         message=message,
-        can_pay=True if auction.bids else False
+        can_pay=True if bids else False
     )
 
 
@@ -498,17 +525,27 @@ async def get_auction_status(
     if auction.status == AuctionStatus.ACTIVE and auction.end_time <= now:
         auction.status = AuctionStatus.ENDED
         
-        if auction.bids:
-            winning_bid = max(auction.bids, key=lambda b: b.amount)
+        # Explicitly query bids to ensure they're loaded
+        bids = db.query(Bid).filter(Bid.auction_id == auction_id).order_by(desc(Bid.amount)).all()
+        
+        if bids:
+            winning_bid = bids[0]  # Already sorted by amount desc, so first is highest
             auction.winning_bid_id = winning_bid.bid_id
             auction.winning_bidder_id = winning_bid.bidder_id
             final_price = winning_bid.amount
-            message = f"Auction ended. Winner: {winning_bid.bidder.first_name} {winning_bid.bidder.last_name}"
+            
+            # Load bidder info for message
+            bidder = db.query(User).filter(User.user_id == winning_bid.bidder_id).first()
+            bidder_name = f"{bidder.first_name} {bidder.last_name}" if bidder else "Unknown"
+            message = f"Auction ended. Winner: {bidder_name}"
         else:
+            auction.winning_bid_id = None
+            auction.winning_bidder_id = None
             final_price = auction.starting_price
             message = "Auction ended with no bids"
         
         db.commit()
+        db.refresh(auction)  # Refresh to ensure all fields are updated
     
     return AuctionEndResponse(
         auction_id=auction.auction_id,
