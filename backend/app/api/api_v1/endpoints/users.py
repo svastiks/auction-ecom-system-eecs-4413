@@ -80,9 +80,10 @@ async def create_user_address(
     """
     user_service = UserService(db)
     address = await user_service.create_address(current_user.user_id, address_data)
+    address_response = AddressResponse.model_validate(address)
     return {
         "message": "The shipping address has been updated.",
-        "address": address
+        "address": address_response
     }
 
 @router.put("/me/addresses/{address_id}", response_model=dict)
@@ -112,9 +113,10 @@ async def update_user_address(
     """
     user_service = UserService(db)
     address = await user_service.update_address(current_user.user_id, address_id, address_update)
+    address_response = AddressResponse.model_validate(address)
     return {
         "message": "The shipping address has been updated.",
-        "address": address
+        "address": address_response
     }
 
 @router.delete("/me/addresses/{address_id}", response_model=dict)
