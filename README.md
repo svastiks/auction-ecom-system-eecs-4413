@@ -21,22 +21,34 @@ inputs) as well --> postman collection submitted with the zip ✅
 during the DockerFile setup, which will initialize the database (populate), the setup instructions
 below will elaborate ✅
 
-- An updated design document that explains any changes in the design, testcases, project plan, and
+- An updated design document that explains any changes in the design, test cases, project plan, and
 team meeting logs ( You can go beyond 12 pages now) --> submitted on eclass ✅
 ```
 
-## Postman Testing instructions
+## Postman Testing instructions (Very important read)
 
-The postman collection is attached in the zip file, that .json will need to be imported into your postman in order to view it.
+We built a detailed Postman collection that mimics the real interactions between a buyer and a seller in our bidding system, serving as our primary testing environment.
 
-The collection automatically sets many variables as collection variables. For example, the accessToken, addressId, categoryId etc.
-A javascript script was added under the scripts section in order to set these variables and will help with testing.
+The collection is organized into multiple folders (/auth, /users, /catalogue, /auction, /orders, /delete_endpoints (to delete at the end, not during testing)), following the logical user flow. Each request uses collection variables—like `accessToken`, `addressId`, `categoryId`, and `itemId`, that are automatically set by scripts after running certain endpoints. For instance, when a user logs in through `/auth/login`, the script extracts the generated `access_token` and saves it as a variable (accessToken), letting all protected requests run seamlessly without manual setup.
 
-To give a working example, when the /auth/login endpoint is hit we generate an access_token, this is required to run AUTH protected endpoints.
-We set the access_token as accessToken and ensure a smooth testing experience is provided (avoiding the need to manually set it)
+During testing, we switch contexts between buyer and seller as needed to reflect real scenarios. For ease of use, please run from the endpoints top to bottom, i.e. auth to orders. This will help you experience the FULL user flow as intended.
+
+For example:
+
+- We first create the buyer and the seller, and then stay logged in as a seller
+
+- Then, we log in as the buyer to create an `address` or `browse auction items`.
+
+- Then, we log in as the seller again to create `categories` or list new `items` for auction.
+
+- After that, we switch back to the buyer to place bids, check bidding status, and complete an order (pay for an order).
+
+This approach ensures we can fully simulate both sides of the marketplace in a consistent, automated way inside Postman, verifying that authentication and endpoint flows all work correctly from end to end.
 
 ## Setup Instructions
-**Step 1: Clone the repository and cd into backend:**
+**Step 1: Clone the repository and cd into backend OR Extract the zip file and then cd into backend**
+
+If you decide to clone the repo, then follow the command below
 ```bash
 git clone https://github.com/svastiks/auction-ecom-system-eecs-4413.git
 
@@ -78,7 +90,12 @@ abe4291b927d   postgres:15                             Up           0.0.0.0:5434
 Once the application is up and running, this URL for our API documentation: http://localhost:8000/docs#
 
 Screenshot below for reference:
-<img width="2161" height="5140" alt="latest_endpoints" src="https://github.com/user-attachments/assets/786507a0-4a6c-4b69-99b5-ba841ddd4952" />
+
+<img width="1497" height="1048" alt="image" src="https://github.com/user-attachments/assets/6979c56f-c650-4047-a460-53128341ed59" />
+
+<img width="1470" height="1205" alt="image" src="https://github.com/user-attachments/assets/ed85c4a9-b3bb-4354-b05e-6a1d0f9cf190" />
+
+<img width="1470" height="1095" alt="image" src="https://github.com/user-attachments/assets/44023daf-e107-42fc-81e0-f56dceefb8c2" />
 
 ## Database Schema
 
