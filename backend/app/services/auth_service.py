@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_
@@ -49,16 +49,22 @@ class AuthService:
         self.db.commit()
         self.db.refresh(user)
 
-        # Create access token
-        access_token = create_access_token(data={"sub": str(user.user_id)})
-        
-        # Create auth session
+        # Create auth session first (to get session_id)
         session = AuthSession(
             user_id=user.user_id,
-            expires_at=datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         )
         self.db.add(session)
         self.db.commit()
+        self.db.refresh(session)
+        
+        # Create access token with session_id included
+        access_token = create_access_token(
+            data={
+                "sub": str(user.user_id),
+                "session_id": str(session.session_id)
+            }
+        )
 
         return user, access_token
 
@@ -84,16 +90,22 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Create access token
-        access_token = create_access_token(data={"sub": str(user.user_id)})
-        
-        # Create auth session
+        # Create auth session first (to get session_id)
         session = AuthSession(
             user_id=user.user_id,
-            expires_at=datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         )
         self.db.add(session)
         self.db.commit()
+        self.db.refresh(session)
+        
+        # Create access token with session_id included
+        access_token = create_access_token(
+            data={
+                "sub": str(user.user_id),
+                "session_id": str(session.session_id)
+            }
+        )
 
         return user, access_token
 
@@ -115,7 +127,7 @@ class AuthService:
         reset_token_record = PasswordResetToken(
             user_id=user.user_id,
             token_hash=token_hash,
-            expires_at=datetime.utcnow() + timedelta(hours=1)  # 1 hour expiration
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1)  # 1 hour expiration
         )
         
         self.db.add(reset_token_record)
@@ -130,7 +142,7 @@ class AuthService:
         # Find valid reset token
         stmt = select(PasswordResetToken).where(
             and_(
-                PasswordResetToken.expires_at > datetime.utcnow(),
+                PasswordResetToken.expires_at > datetime.now(timezone.utc),
                 PasswordResetToken.used_at.is_(None)
             )
         )
@@ -153,13 +165,13 @@ class AuthService:
                 user.password_hash = get_password_hash(new_password)
                 
                 # Mark token as used
-                reset_token_record.used_at = datetime.utcnow()
+                reset_token_record.used_at = datetime.now(timezone.utc)
                 
                 # Invalidate all user sessions
                 session_stmt = select(AuthSession).where(AuthSession.user_id == user.user_id)
                 sessions = self.db.execute(session_stmt).scalars().all()
                 for session in sessions:
-                    session.expires_at = datetime.utcnow()  # Expire immediately
+                    session.expires_at = datetime.now(timezone.utc)  # Expire immediately
                 
                 self.db.commit()
                 return True
@@ -175,7 +187,7 @@ class AuthService:
         sessions = self.db.execute(stmt).scalars().all()
         
         for session in sessions:
-            session.expires_at = datetime.utcnow()  # Expire immediately
+            session.expires_at = datetime.now(timezone.utc)  # Expire immediately
         
         self.db.commit()
         return True
