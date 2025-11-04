@@ -70,6 +70,7 @@ docker-compose up --build
  POSTGRES_DB: auction_db
  POSTGRES_USER: auction_user
  POSTGRES_PASSWORD: auction_password
+ PORT: 5434
 
  DATABASE_URL = "postgresql://auction_user:auction_password@localhost:5434/auction_db"
 ```
