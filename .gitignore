@@ -85,3 +85,5 @@ coverage.xml
 # Alembic
 alembic/versions/*.py
 !alembic/versions/.gitkeep
+
+.next/

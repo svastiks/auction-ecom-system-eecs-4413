@@ -111,7 +111,7 @@ async def create_order(
     # Create order
     order = Order(
         auction_id=order_data.auction_id,
-        buyer_id=current_user.user_id,
+        buyer_id=auction.winning_bidder_id,
         item_id=auction.item_id,
         winning_bid_amount=winning_bid_amount,
         shipping_method=order_data.shipping_method.value,
