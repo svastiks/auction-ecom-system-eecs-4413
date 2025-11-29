@@ -1,26 +1,25 @@
-'use client';
+"use client"
 
-import Link from 'next/link';
-import { useAuth } from '@/lib/auth-context';
-import { Button } from '@/components/ui/button';
-import { usePathname } from 'next/navigation';
+import Link from "next/link"
+import { useAuth } from "@/lib/auth-context"
+import { Button } from "@/components/ui/button"
+import { usePathname } from "next/navigation"
 
 export function Navbar() {
-  const { user, logout } = useAuth();
-  const pathname = usePathname();
+  const { user, logout } = useAuth()
+  const pathname = usePathname()
 
-  if (!user || pathname === '/auth') {
-    return null;
+  if (!user || pathname === "/auth") {
+    return null
   }
 
   const navLinks = [
-    { href: '/catalogue', label: 'Catalogue' },
-    { href: '/my-bids', label: 'My Bids' },
-    { href: '/my-orders', label: 'My Orders' },
-    { href: '/account', label: 'Account' },
-    { href: '/seller/create-item', label: 'Create Item' },
-    { href: '/seller/create-auction', label: 'Create Auction' },
-  ];
+    { href: "/catalogue", label: "Catalogue" },
+    { href: "/my-bids", label: "My Bids" },
+    { href: "/my-orders", label: "My Orders" },
+    { href: "/account", label: "Account" },
+    { href: "/seller/create-auction", label: "Create Auction" },
+  ]
 
   return (
     <nav className="border-b border-border bg-card">
@@ -36,7 +35,7 @@ export function Navbar() {
                   key={link.href}
                   href={link.href}
                   className={`text-sm font-medium transition-colors hover:text-primary ${
-                    pathname === link.href ? 'text-foreground' : 'text-muted-foreground'
+                    pathname === link.href ? "text-foreground" : "text-muted-foreground"
                   }`}
                 >
                   {link.label}
@@ -45,9 +44,7 @@ export function Navbar() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground hidden sm:inline">
-              {user.username}
-            </span>
+            <span className="text-sm text-muted-foreground hidden sm:inline">{user.username}</span>
             <Button onClick={logout} variant="outline" size="sm">
               Logout
             </Button>
@@ -55,5 +52,5 @@ export function Navbar() {
         </div>
       </div>
     </nav>
-  );
+  )
 }

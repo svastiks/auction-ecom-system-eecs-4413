@@ -1,164 +1,227 @@
-'use client';
+"use client"
 
-import { useState, useEffect } from 'react';
-import { api, Item, AuctionInput, ApiError } from '@/lib/api';
-import { useAuth } from '@/lib/auth-context';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
+import type React from "react"
+
+import { useState, useEffect } from "react"
+import { api, type Category, type ItemInput, type AuctionInput, ApiError } from "@/lib/api"
+import { useAuth } from "@/lib/auth-context"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, X, Plus } from "lucide-react"
+import Link from "next/link"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export default function CreateAuctionPage() {
-  const { user, isLoading: authLoading } = useAuth();
-  const router = useRouter();
-  const { toast } = useToast();
-  const [items, setItems] = useState<Item[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const { user, isLoading: authLoading } = useAuth()
+  const router = useRouter()
+  const { toast } = useToast()
+  const [categories, setCategories] = useState<Category[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [imageUrls, setImageUrls] = useState<string[]>([""])
 
-  const [formData, setFormData] = useState({
-    item_id: '',
-    starting_price: '',
-    min_increment: '1',
-    start_time: '',
-    end_time: '',
-  });
+  const [itemData, setItemData] = useState({
+    title: "",
+    description: "",
+    category_id: "",
+    keywords: "",
+    shipping_price_normal: "",
+    shipping_price_expedited: "",
+    shipping_time_days: "",
+    is_active: true,
+  })
+
+  const [auctionData, setAuctionData] = useState({
+    starting_price: "",
+    min_increment: "1",
+    start_time: "",
+    end_time: "",
+  })
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/auth');
+      router.push("/auth")
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router])
 
   useEffect(() => {
-    loadItems();
+    loadCategories()
     // Set default times
-    const now = new Date();
-    const start = new Date(now.getTime() + 5 * 60000); // 5 minutes from now
-    const end = new Date(now.getTime() + 7 * 24 * 60 * 60000); // 7 days from now
-    
-    setFormData(prev => ({
+    const now = new Date()
+    const start = new Date(now.getTime() + 5 * 60000) // 5 minutes from now
+    const end = new Date(now.getTime() + 7 * 24 * 60 * 60000) // 7 days from now
+
+    setAuctionData((prev) => ({
       ...prev,
       start_time: start.toISOString().slice(0, 16),
       end_time: end.toISOString().slice(0, 16),
-    }));
-  }, []);
+    }))
+  }, [])
 
-  const loadItems = async () => {
+  const loadCategories = async () => {
     try {
-      const itemsData = await api.getItems();
-      setItems(itemsData.filter(item => item.is_active));
+      const categoriesData = await api.getCategories()
+      setCategories(categoriesData)
     } catch (error) {
-      console.error('[v0] Failed to load items:', error);
+      console.error("Failed to load categories:", error)
       toast({
-        title: 'Error',
-        description: 'Failed to load items',
-        variant: 'destructive',
-      });
+        title: "Error",
+        description: "Failed to load categories",
+        variant: "destructive",
+      })
     }
-  };
+  }
+
+  const handleImageUrlChange = (index: number, value: string) => {
+    const newUrls = [...imageUrls]
+    newUrls[index] = value
+    setImageUrls(newUrls)
+  }
+
+  const addImageUrl = () => {
+    setImageUrls([...imageUrls, ""])
+  }
+
+  const removeImageUrl = (index: number) => {
+    if (imageUrls.length > 1) {
+      setImageUrls(imageUrls.filter((_, i) => i !== index))
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
 
-    if (!formData.item_id) {
+    // Validation - Item fields
+    if (!itemData.title || !itemData.description || !itemData.category_id) {
       toast({
-        title: 'Validation Error',
-        description: 'Please select an item',
-        variant: 'destructive',
-      });
-      return;
+        title: "Validation Error",
+        description: "Title, description, and category are required",
+        variant: "destructive",
+      })
+      return
     }
 
-    const selectedItem = items.find(item => item.id === Number(formData.item_id));
-    const starting_price = Math.round(parseFloat(formData.starting_price) * 100);
-    const min_increment = Math.round(parseFloat(formData.min_increment) * 100);
+    const validImageUrls = imageUrls.filter((url) => url.trim() !== "")
+    if (validImageUrls.length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "At least one image URL is required",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const shipping_price_normal = Math.round(Number.parseFloat(itemData.shipping_price_normal) * 100)
+    const shipping_price_expedited = Math.round(Number.parseFloat(itemData.shipping_price_expedited) * 100)
+
+    // Validation - Auction fields
+    const starting_price = Math.round(Number.parseFloat(auctionData.starting_price) * 100)
+    const min_increment = Math.round(Number.parseFloat(auctionData.min_increment) * 100)
 
     if (isNaN(starting_price) || starting_price <= 0) {
       toast({
-        title: 'Validation Error',
-        description: 'Starting price must be a valid positive number',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (selectedItem && starting_price < selectedItem.base_price) {
-      toast({
-        title: 'Validation Error',
-        description: 'Starting price must be at least the base price',
-        variant: 'destructive',
-      });
-      return;
+        title: "Validation Error",
+        description: "Starting price must be a valid positive number",
+        variant: "destructive",
+      })
+      return
     }
 
     if (min_increment < 100) {
       toast({
-        title: 'Validation Error',
-        description: 'Minimum increment must be at least $1',
-        variant: 'destructive',
-      });
-      return;
+        title: "Validation Error",
+        description: "Minimum increment must be at least $1",
+        variant: "destructive",
+      })
+      return
     }
 
-    const startTime = new Date(formData.start_time);
-    const endTime = new Date(formData.end_time);
+    const startTime = new Date(auctionData.start_time)
+    const endTime = new Date(auctionData.end_time)
 
     if (startTime >= endTime) {
       toast({
-        title: 'Validation Error',
-        description: 'End time must be after start time',
-        variant: 'destructive',
-      });
-      return;
+        title: "Validation Error",
+        description: "End time must be after start time",
+        variant: "destructive",
+      })
+      return
     }
 
     if (endTime <= new Date()) {
       toast({
-        title: 'Validation Error',
-        description: 'End time must be in the future',
-        variant: 'destructive',
-      });
-      return;
+        title: "Validation Error",
+        description: "End time must be in the future",
+        variant: "destructive",
+      })
+      return
     }
 
-    setIsLoading(true);
+    setIsLoading(true)
 
     try {
+      const itemInput: ItemInput = {
+        title: itemData.title,
+        description: itemData.description,
+        category_id: Number(itemData.category_id),
+        keywords: itemData.keywords || undefined,
+        shipping_price_normal,
+        shipping_price_expedited,
+        shipping_time_days: Number(itemData.shipping_time_days),
+        is_active: itemData.is_active,
+        images: validImageUrls.map((url, index) => ({
+          url,
+          position: index,
+        })),
+      }
+
+      const createdItem = await api.createItem(itemInput)
+      console.log("[v0] Created item:", createdItem)
+
+      const itemId = createdItem.id || (createdItem as any).item_id
+
+      if (!itemId) {
+        throw new Error("Failed to get item ID from API response")
+      }
+
       const auctionInput: AuctionInput = {
-        auction_type: 'FORWARD',
+        auction_type: "FORWARD",
         starting_price,
         min_increment,
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
-        status: 'ACTIVE',
-        item_id: Number(formData.item_id),
-      };
+        status: "ACTIVE",
+        item_id: itemId,
+      }
 
-      const createdAuction = await api.createAuction(auctionInput);
-      
+      const createdAuction = await api.createAuction(auctionInput)
+      console.log("[v0] Created auction:", createdAuction)
+
+      const auctionId = createdAuction.id || (createdAuction as any).auction_id
+
       toast({
-        title: 'Success',
-        description: 'Auction created successfully',
-      });
-      
-      router.push(`/auction/${createdAuction.id}`);
+        title: "Success",
+        description: "Item and auction created successfully",
+      })
+
+      router.push(`/auction/${auctionId}`)
     } catch (error) {
-      console.error('[v0] Failed to create auction:', error);
-      const message = error instanceof ApiError ? error.message : 'Failed to create auction';
+      console.error("[v0] Failed to create item/auction:", error)
+      const message = error instanceof ApiError ? error.message : "Failed to create item and auction"
       toast({
-        title: 'Error',
+        title: "Error",
         description: message,
-        variant: 'destructive',
-      });
+        variant: "destructive",
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
@@ -171,111 +234,201 @@ export default function CreateAuctionPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Create New Auction</CardTitle>
-          <CardDescription>
-            Create a forward auction for an existing catalogue item
-          </CardDescription>
+          <CardTitle>Create Item and Auction</CardTitle>
+          <CardDescription>Create a new item and start an auction for it</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="item">Select Item *</Label>
-              <Select
-                value={formData.item_id}
-                onValueChange={(value) => {
-                  const item = items.find(i => i.id === Number(value));
-                  setFormData({ 
-                    ...formData, 
-                    item_id: value,
-                    starting_price: item ? (item.base_price / 100).toFixed(2) : '',
-                  });
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an item to auction" />
-                </SelectTrigger>
-                <SelectContent>
-                  {items.map((item) => (
-                    <SelectItem key={item.id} value={String(item.id)}>
-                      {item.title} (Base: ${(item.base_price / 100).toFixed(2)})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {items.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  No active items available.{' '}
-                  <Link href="/seller/create-item" className="text-primary hover:underline">
-                    Create an item first
-                  </Link>
-                </p>
-              )}
-            </div>
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Item Details</h3>
 
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="starting_price">Starting Price ($) *</Label>
+                <Label htmlFor="title">Title *</Label>
                 <Input
-                  id="starting_price"
+                  id="title"
+                  required
+                  value={itemData.title}
+                  onChange={(e) => setItemData({ ...itemData, title: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description *</Label>
+                <Textarea
+                  id="description"
+                  required
+                  rows={4}
+                  value={itemData.description}
+                  onChange={(e) => setItemData({ ...itemData, description: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="category">Category *</Label>
+                <Select
+                  value={itemData.category_id}
+                  onValueChange={(value) => setItemData({ ...itemData, category_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={String(category.id)}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="keywords">Keywords</Label>
+                <Input
+                  id="keywords"
+                  placeholder="jacket, winter, clothing"
+                  value={itemData.keywords}
+                  onChange={(e) => setItemData({ ...itemData, keywords: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="shipping_time_days">Shipping Days *</Label>
+                  <Input
+                    id="shipping_time_days"
+                    type="number"
+                    min="1"
+                    required
+                    value={itemData.shipping_time_days}
+                    onChange={(e) => setItemData({ ...itemData, shipping_time_days: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="shipping_normal">Normal Shipping ($) *</Label>
+                  <Input
+                    id="shipping_normal"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={itemData.shipping_price_normal}
+                    onChange={(e) => setItemData({ ...itemData, shipping_price_normal: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="shipping_expedited">Expedited Shipping ($) *</Label>
+                <Input
+                  id="shipping_expedited"
                   type="number"
                   step="0.01"
                   min="0"
                   required
-                  value={formData.starting_price}
-                  onChange={(e) => setFormData({ ...formData, starting_price: e.target.value })}
+                  value={itemData.shipping_price_expedited}
+                  onChange={(e) => setItemData({ ...itemData, shipping_price_expedited: e.target.value })}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Must be at least the item's base price
-                </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="min_increment">Min Increment ($) *</Label>
-                <Input
-                  id="min_increment"
-                  type="number"
-                  step="0.01"
-                  min="1"
-                  required
-                  value={formData.min_increment}
-                  onChange={(e) => setFormData({ ...formData, min_increment: e.target.value })}
+                <Label>Image URLs *</Label>
+                {imageUrls.map((url, index) => (
+                  <div key={index} className="flex gap-2">
+                    <Input
+                      placeholder="https://example.com/image.jpg"
+                      value={url}
+                      onChange={(e) => handleImageUrlChange(index, e.target.value)}
+                    />
+                    {imageUrls.length > 1 && (
+                      <Button type="button" variant="outline" size="icon" onClick={() => removeImageUrl(index)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button type="button" variant="outline" size="sm" onClick={addImageUrl}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Another Image
+                </Button>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="is_active"
+                  checked={itemData.is_active}
+                  onCheckedChange={(checked) => setItemData({ ...itemData, is_active: checked as boolean })}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Minimum bid increment
-                </p>
+                <Label htmlFor="is_active" className="cursor-pointer">
+                  Item is active
+                </Label>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="start_time">Start Time *</Label>
-                <Input
-                  id="start_time"
-                  type="datetime-local"
-                  required
-                  value={formData.start_time}
-                  onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                />
+            <div className="space-y-4 border-t pt-6">
+              <h3 className="text-lg font-semibold">Auction Details</h3>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="starting_price">Starting Price ($) *</Label>
+                  <Input
+                    id="starting_price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={auctionData.starting_price}
+                    onChange={(e) => setAuctionData({ ...auctionData, starting_price: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">This will be the item's base price</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="min_increment">Min Increment ($) *</Label>
+                  <Input
+                    id="min_increment"
+                    type="number"
+                    step="0.01"
+                    min="1"
+                    required
+                    value={auctionData.min_increment}
+                    onChange={(e) => setAuctionData({ ...auctionData, min_increment: e.target.value })}
+                  />
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="end_time">End Time *</Label>
-                <Input
-                  id="end_time"
-                  type="datetime-local"
-                  required
-                  value={formData.end_time}
-                  onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="start_time">Start Time *</Label>
+                  <Input
+                    id="start_time"
+                    type="datetime-local"
+                    required
+                    value={auctionData.start_time}
+                    onChange={(e) => setAuctionData({ ...auctionData, start_time: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="end_time">End Time *</Label>
+                  <Input
+                    id="end_time"
+                    type="datetime-local"
+                    required
+                    value={auctionData.end_time}
+                    onChange={(e) => setAuctionData({ ...auctionData, end_time: e.target.value })}
+                  />
+                </div>
               </div>
             </div>
 
             <div className="flex gap-3">
-              <Button type="submit" disabled={isLoading || items.length === 0} className="flex-1">
-                {isLoading ? 'Creating...' : 'Create Auction'}
+              <Button type="submit" disabled={isLoading} className="flex-1">
+                {isLoading ? "Creating..." : "Create Item & Auction"}
               </Button>
               <Link href="/catalogue" className="flex-1">
-                <Button type="button" variant="outline" className="w-full">
+                <Button type="button" variant="outline" className="w-full bg-transparent">
                   Cancel
                 </Button>
               </Link>
@@ -284,5 +437,5 @@ export default function CreateAuctionPage() {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }

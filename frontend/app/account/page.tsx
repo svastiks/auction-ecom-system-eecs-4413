@@ -471,8 +471,7 @@ export default function AccountPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {Array.isArray(addresses) && addresses.length > 0 ? (
-                    addresses.map((address) => (
+                  {addresses.map((address) => (
                     <div
                       key={address.id}
                       className="p-4 rounded-lg border flex items-start justify-between"
@@ -516,10 +515,7 @@ export default function AccountPage() {
                         </Button>
                       </div>
                     </div>
-                  ))
-                  ) : (
-                    <p className="text-center text-muted-foreground py-4">No addresses found</p>
-                  )}
+                  ))}
                 </div>
               )}
             </CardContent>

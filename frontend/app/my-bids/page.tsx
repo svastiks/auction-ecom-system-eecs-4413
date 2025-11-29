@@ -70,32 +70,26 @@ export default function MyBidsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {Array.isArray(bids) && bids.length > 0 ? (
-            bids.map((bid) => (
-              <Card key={bid.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle>Auction #{bid.auction_id}</CardTitle>
-                      <CardDescription>
-                        Placed on {new Date(bid.created_at).toLocaleString()}
-                      </CardDescription>
-                    </div>
-                    <p className="text-xl font-bold">
-                      ${(bid.amount / 100).toFixed(2)}
-                    </p>
+          {bids.map((bid) => (
+            <Card key={bid.id}>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle>Auction #{bid.auction_id}</CardTitle>
+                    <CardDescription>
+                      Placed on {new Date(bid.created_at).toLocaleString()}
+                    </CardDescription>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <Link href={`/auction/${bid.auction_id}`}>
-                    <Button variant="outline">View Auction</Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <p className="text-center text-muted-foreground py-4">No bids found</p>
-          )}
+                  <p className="text-xl font-bold">${(bid.amount / 100).toFixed(2)}</p>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Link href={`/auction/${bid.auction_id}`}>
+                  <Button variant="outline">View Auction</Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </div>

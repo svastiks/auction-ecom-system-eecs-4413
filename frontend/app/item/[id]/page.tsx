@@ -4,51 +4,39 @@ import { useState, useEffect } from 'react';
 import { api, Item, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Package, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
-export default function ItemDetailPage() {
+export default function ItemDetailPage({ params }: { params: { id: string } }) {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const params = useParams<{ id: string }>();
-  const id = params?.id;
-
   const [item, setItem] = useState<Item | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
-    // redirect to /auth if user not logged in once auth check is done
     if (!authLoading && !user) {
       router.push('/auth');
     }
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (!id) return;
-    loadItem(id);
-  }, [id]);
+    loadItem();
+  }, [params.id]);
 
-  const loadItem = async (itemId: string) => {
+  const loadItem = async () => {
     setIsLoading(true);
     try {
-      const itemData = await api.getItem(Number(itemId));
+      const itemData = await api.getItem(Number(params.id));
       setItem(itemData);
     } catch (error) {
       console.error('[v0] Failed to load item:', error);
-      const message =
-        error instanceof ApiError ? error.message : 'Failed to load item';
+      const message = error instanceof ApiError ? error.message : 'Failed to load item';
       toast({
         title: 'Error',
         description: message,
@@ -90,7 +78,7 @@ export default function ItemDetailPage() {
           <div className="aspect-square bg-muted rounded-lg overflow-hidden">
             {item.images && item.images.length > 0 ? (
               <img
-                src={item.images[currentImageIndex].url || '/placeholder.svg'}
+                src={item.images[currentImageIndex].url || "/placeholder.svg"}
                 alt={item.title}
                 className="w-full h-full object-cover"
               />
@@ -104,16 +92,14 @@ export default function ItemDetailPage() {
             <div className="flex gap-2 overflow-x-auto">
               {item.images.map((image, index) => (
                 <button
-                  key={image.id ?? index}
+                  key={image.id}
                   onClick={() => setCurrentImageIndex(index)}
                   className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 ${
-                    currentImageIndex === index
-                      ? 'border-primary'
-                      : 'border-border'
+                    currentImageIndex === index ? 'border-primary' : 'border-border'
                   }`}
                 >
                   <img
-                    src={image.url || '/placeholder.svg'}
+                    src={image.url || "/placeholder.svg"}
                     alt={`${item.title} ${index + 1}`}
                     className="w-full h-full object-cover"
                   />
@@ -128,9 +114,7 @@ export default function ItemDetailPage() {
           <div>
             <div className="flex items-start justify-between mb-2">
               <h1 className="text-3xl font-bold">{item.title}</h1>
-              {!item.is_active && (
-                <Badge variant="secondary">Inactive</Badge>
-              )}
+              {!item.is_active && <Badge variant="secondary">Inactive</Badge>}
             </div>
             {item.category && (
               <Badge variant="outline" className="mb-4">
@@ -153,23 +137,15 @@ export default function ItemDetailPage() {
               </div>
               <div className="border-t pt-3 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Normal Shipping:
-                  </span>
+                  <span className="text-muted-foreground">Normal Shipping:</span>
                   <span>${(item.shipping_price_normal / 100).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Expedited Shipping:
-                  </span>
-                  <span>
-                    ${(item.shipping_price_expedited / 100).toFixed(2)}
-                  </span>
+                  <span className="text-muted-foreground">Expedited Shipping:</span>
+                  <span>${(item.shipping_price_expedited / 100).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Estimated Delivery:
-                  </span>
+                  <span className="text-muted-foreground">Estimated Delivery:</span>
                   <span>{item.shipping_time_days} days</span>
                 </div>
               </div>
