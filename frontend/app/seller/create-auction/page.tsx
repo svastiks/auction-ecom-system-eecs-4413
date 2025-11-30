@@ -144,8 +144,64 @@ export default function CreateAuctionPage() {
   
     // datetime-local returns local time without timezone, so we need to treat it as local and convert to UTC
     // The input format is "YYYY-MM-DDTHH:mm" (local time)
-    const startTimeLocal = new Date(auctionData.start_time);
-    const endTimeLocal = new Date(auctionData.end_time);
+    // Parse datetime-local format correctly - ensure it's treated as local time
+    let startTimeLocal: Date;
+    let endTimeLocal: Date;
+    
+    try {
+      // datetime-local format: "YYYY-MM-DDTHH:mm"
+      // Create Date object treating it as local time
+      if (!auctionData.start_time || !auctionData.end_time) {
+        toast({
+          title: "Validation Error",
+          description: "Start time and end time are required",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Parse as local time by creating date components
+      const startParts = auctionData.start_time.split('T');
+      const endParts = auctionData.end_time.split('T');
+      
+      if (startParts.length !== 2 || endParts.length !== 2) {
+        toast({
+          title: "Validation Error",
+          description: "Invalid time format. Please use the date/time picker.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const [startDate, startTime] = startParts;
+      const [endDate, endTime] = endParts;
+      
+      const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+      const [startHour, startMinute] = startTime.split(':').map(Number);
+      const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+      const [endHour, endMinute] = endTime.split(':').map(Number);
+      
+      // Create Date objects in local timezone
+      startTimeLocal = new Date(startYear, startMonth - 1, startDay, startHour, startMinute);
+      endTimeLocal = new Date(endYear, endMonth - 1, endDay, endHour, endMinute);
+      
+      // Validate dates are valid
+      if (isNaN(startTimeLocal.getTime()) || isNaN(endTimeLocal.getTime())) {
+        toast({
+          title: "Validation Error",
+          description: "Invalid date/time values",
+          variant: "destructive",
+        });
+        return;
+      }
+    } catch (error) {
+      toast({
+        title: "Validation Error",
+        description: "Error parsing date/time. Please check the format.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     // Validate times are in the future (using local time comparison)
     const nowLocal = new Date();

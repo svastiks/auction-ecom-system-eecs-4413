@@ -48,6 +48,13 @@ export default function AuctionDetailPage() {
     return () => clearInterval(interval);
   }, [auction?.status, params.id]);
 
+  // When timer ends, reload auction data to get the winner
+  useEffect(() => {
+    if (timeRemaining.isEnded && auction && auction.status === 'ACTIVE') {
+      loadAuctionData();
+    }
+  }, [timeRemaining.isEnded]);
+
   const loadAuctionData = async () => {
     if (!params?.id || params.id === 'undefined') {
       setIsLoading(false);
