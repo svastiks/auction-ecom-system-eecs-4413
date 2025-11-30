@@ -299,12 +299,14 @@ export const api = {
   
   getAuctionBids: async (auctionId: string | number) => {
     const bids = await apiRequest<Bid[]>(`/auction/${auctionId}/bids`);
-    // Transform bids to ensure id field exists
+    // Transform bids to ensure id field exists and preserve bidder info
     return Array.isArray(bids) ? bids.map((bid: any) => ({
       ...bid,
       id: bid.bid_id || bid.id,
       auction_id: bid.auction_id || auctionId.toString(),
       created_at: bid.placed_at || bid.created_at,
+      bidder: bid.bidder || bid.user, // Preserve bidder info from backend
+      bidder_id: bid.bidder_id || bid.user_id, // Map bidder_id
     })) : [];
   },
   
@@ -518,7 +520,13 @@ export interface Bid {
   auction_end_time?: string;
   amount: number;
   user_id?: string; // UUID
-  user?: User;
+  bidder_id?: string; // UUID (backend field name)
+  user?: User; // Legacy field, may not be present
+  bidder?: { // Backend returns bidder with first_name and last_name
+    user_id: string;
+    first_name?: string;
+    last_name?: string;
+  };
 }
 
 export interface Order {

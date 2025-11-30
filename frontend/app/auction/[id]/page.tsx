@@ -237,12 +237,16 @@ export default function AuctionDetailPage() {
                             ${(bid.amount / 100).toFixed(2)}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {bid.user?.username || 'Unknown user'}
+                            {bid.bidder?.first_name && bid.bidder?.last_name
+                              ? `${bid.bidder.first_name} ${bid.bidder.last_name}`
+                              : bid.user?.first_name && bid.user?.last_name
+                              ? `${bid.user.first_name} ${bid.user.last_name}`
+                              : bid.user?.username || 'Unknown user'}
                           </p>
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(bid.created_at).toLocaleString()}
+                        {bid.created_at ? new Date(bid.created_at).toLocaleString() : 'Unknown date'}
                       </p>
                     </div>
                   ))}
