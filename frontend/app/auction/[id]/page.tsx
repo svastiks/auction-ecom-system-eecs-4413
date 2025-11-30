@@ -48,6 +48,13 @@ export default function AuctionDetailPage() {
     return () => clearInterval(interval);
   }, [auction?.status, params.id]);
 
+  // When timer ends, reload auction data to get the winner
+  useEffect(() => {
+    if (timeRemaining.isEnded && auction && auction.status === 'ACTIVE') {
+      loadAuctionData();
+    }
+  }, [timeRemaining.isEnded]);
+
   const loadAuctionData = async () => {
     if (!params?.id || params.id === 'undefined') {
       setIsLoading(false);
@@ -176,10 +183,37 @@ export default function AuctionDetailPage() {
   const currentHighest = auction.current_highest_bid || auction.starting_price;
   const hasEnded = auction.status === 'ENDED' || timeRemaining.isEnded;
   const isWinner = hasEnded && auction.winning_bidder_id === user?.id;
-  console.log(auction);
-  console.log(user?.id);
+  const isSeller = auction.item?.seller_id === user?.id;
+  const userPlacedBids = bids.some(bid => bid.bidder_id === user?.id || bid.user_id === user?.id);
   const hasOrder = auction.has_order || false;
   const isSold = hasOrder;
+  
+  // Get winning bidder name for seller message
+  let winningBidderName = 'Unknown buyer';
+  let winningBidderFirstName = 'Unknown';
+  if ((auction as any).winning_bidder?.first_name && (auction as any).winning_bidder?.last_name) {
+    winningBidderName = `${(auction as any).winning_bidder.first_name} ${(auction as any).winning_bidder.last_name}`;
+    winningBidderFirstName = (auction as any).winning_bidder.first_name;
+  } else if (auction.winning_bidder_id) {
+    const winningBid = bids.find(bid => 
+      (bid.bidder_id === auction.winning_bidder_id) || 
+      (bid.user_id === auction.winning_bidder_id)
+    );
+    if (winningBid?.bidder?.first_name && winningBid?.bidder?.last_name) {
+      winningBidderName = `${winningBid.bidder.first_name} ${winningBid.bidder.last_name}`;
+      winningBidderFirstName = winningBid.bidder.first_name;
+    } else if (winningBid?.user?.first_name && winningBid?.user?.last_name) {
+      winningBidderName = `${winningBid.user.first_name} ${winningBid.user.last_name}`;
+      winningBidderFirstName = winningBid.user.first_name;
+    } else if (winningBid?.bidder?.first_name) {
+      winningBidderFirstName = winningBid.bidder.first_name;
+    } else if (winningBid?.user?.first_name) {
+      winningBidderFirstName = winningBid.user.first_name;
+    }
+  }
+  
+  // Capitalize first letter of first name
+  const winningBidderFirstNameCapitalized = winningBidderFirstName.charAt(0).toUpperCase() + winningBidderFirstName.slice(1).toLowerCase();
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
@@ -237,12 +271,16 @@ export default function AuctionDetailPage() {
                             ${(bid.amount / 100).toFixed(2)}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {bid.user?.username || 'Unknown user'}
+                            {bid.bidder?.first_name && bid.bidder?.last_name
+                              ? `${bid.bidder.first_name} ${bid.bidder.last_name}`
+                              : bid.user?.first_name && bid.user?.last_name
+                              ? `${bid.user.first_name} ${bid.user.last_name}`
+                              : bid.user?.username || 'Unknown user'}
                           </p>
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(bid.created_at).toLocaleString()}
+                        {bid.created_at ? new Date(bid.created_at).toLocaleString() : 'Unknown date'}
                       </p>
                     </div>
                   ))}
@@ -330,9 +368,22 @@ export default function AuctionDetailPage() {
 
               {hasEnded && !isWinner && !isSold && (
                 <div className="p-4 bg-muted rounded-lg text-center">
-                  <p className="text-muted-foreground">
-                    Auction ended. You did not win.
-                  </p>
+                  {isSeller ? (
+                    // Seller message: "Your item was bought by {buyer_first_name} for {price}"
+                    <p className="text-muted-foreground">
+                      Your item was bought by {winningBidderFirstNameCapitalized} for ${(currentHighest / 100).toFixed(0)}
+                    </p>
+                  ) : userPlacedBids ? (
+                    // User placed bids but lost: "You lost"
+                    <p className="text-muted-foreground">
+                      You lost
+                    </p>
+                  ) : (
+                    // User never placed a bid: "This item was sold for {price}"
+                    <p className="text-muted-foreground">
+                      This item was sold for ${(currentHighest / 100).toFixed(2)}
+                    </p>
+                  )}
                 </div>
               )}
             </CardContent>

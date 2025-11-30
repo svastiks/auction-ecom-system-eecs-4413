@@ -280,6 +280,25 @@ async def get_auction(
             detail="Auction not found"
         )
     
+    # Check if auction should be automatically ended
+    now = datetime.now(timezone.utc)
+    if auction.status == AuctionStatus.ACTIVE and auction.end_time <= now:
+        auction.status = AuctionStatus.ENDED
+        
+        # Explicitly query bids to ensure they're loaded
+        bids = db.query(Bid).filter(Bid.auction_id == auction_id).order_by(desc(Bid.amount)).all()
+        
+        if bids:
+            winning_bid = bids[0]  # Already sorted by amount desc, so first is highest
+            auction.winning_bid_id = winning_bid.bid_id
+            auction.winning_bidder_id = winning_bid.bidder_id
+        else:
+            auction.winning_bid_id = None
+            auction.winning_bidder_id = None
+        
+        db.commit()
+        db.refresh(auction)  # Refresh to ensure all fields are updated
+    
     # Calculate current highest bid
     current_highest_bid = get_current_bidding_price(auction)
     
@@ -347,6 +366,17 @@ async def place_bid(
         # Update status to ENDED if it hasn't been updated yet
         if auction.status != AuctionStatus.ENDED:
             auction.status = AuctionStatus.ENDED
+            
+            # Set winning bidder when ending auction
+            bids = db.query(Bid).filter(Bid.auction_id == auction.auction_id).order_by(desc(Bid.amount)).all()
+            if bids:
+                winning_bid = bids[0]  # Already sorted by amount desc, so first is highest
+                auction.winning_bid_id = winning_bid.bid_id
+                auction.winning_bidder_id = winning_bid.bidder_id
+            else:
+                auction.winning_bid_id = None
+                auction.winning_bidder_id = None
+            
             db.commit()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
