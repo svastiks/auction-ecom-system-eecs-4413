@@ -458,6 +458,7 @@ export interface Item {
   shipping_time_days: number;
   is_active: boolean;
   auction_id?: string; // UUID from backend
+  seller_id?: string; // UUID of the seller
   images: ItemImage[];
   category?: Category;
 }
@@ -490,6 +491,11 @@ export interface Auction {
   highest_bidder_id?: string; // UUID
   winning_bid_id?: string; // UUID
   winning_bidder_id?: string; // UUID
+  winning_bidder?: { // Backend returns winning bidder info
+    user_id: string;
+    first_name?: string;
+    last_name?: string;
+  };
   has_order?: boolean;
   order_id?: string; // UUID
 }
