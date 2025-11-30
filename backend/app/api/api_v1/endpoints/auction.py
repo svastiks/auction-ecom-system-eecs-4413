@@ -108,6 +108,11 @@ async def create_auction(
     db.commit()
     db.refresh(auction)
     
+    # Update item with auction_id
+    item.auction_id = auction.auction_id
+    db.commit()
+    db.refresh(item)
+    
     return auction
 
 
@@ -265,7 +270,8 @@ async def get_auction(
         joinedload(Auction.item).joinedload(CatalogueItem.category),
         joinedload(Auction.item).joinedload(CatalogueItem.images),
         joinedload(Auction.bids).joinedload(Bid.bidder),
-        joinedload(Auction.winning_bidder)
+        joinedload(Auction.winning_bidder),
+        joinedload(Auction.order)
     ).filter(Auction.auction_id == auction_id).first()
     
     if not auction:
@@ -283,6 +289,10 @@ async def get_auction(
         highest_bid = max(auction.bids, key=lambda b: b.amount)
     
     remaining_time = get_remaining_time(auction)
+    
+    # Check if order exists for this auction
+    has_order = auction.order is not None
+    order_id = auction.order.order_id if auction.order else None
     
     return AuctionSchema(
         auction_id=auction.auction_id,
@@ -302,7 +312,9 @@ async def get_auction(
         bids=auction.bids,
         current_highest_bid=current_highest_bid,
         current_highest_bidder_id=highest_bid.bidder_id if highest_bid else None,
-        remaining_time_seconds=remaining_time
+        remaining_time_seconds=remaining_time,
+        has_order=has_order,
+        order_id=order_id
     )
 
 
@@ -346,19 +358,21 @@ async def place_bid(
         auction.status = AuctionStatus.ACTIVE
         db.commit()
     
-    # Check if auction hasn't started yet
-    if auction.start_time > now:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Auction has not started yet"
-        )
-    
-    # Check auction status
+    # Check auction status first
     if auction.status != AuctionStatus.ACTIVE:
+        # If status is SCHEDULED and hasn't started, provide helpful message
+        if auction.status == AuctionStatus.SCHEDULED and auction.start_time > now:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Auction has not started yet. It will start at {auction.start_time.strftime('%Y-%m-%d %H:%M:%S UTC')}"
+            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot bid on {auction.status.lower()} auction"
         )
+    
+    # If status is ACTIVE, allow bidding (even if start_time hasn't passed, 
+    # as the status being ACTIVE is the source of truth)
     
     # Get current bidding price
     current_price = get_current_bidding_price(auction)

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api, Order, Auction, Shipment, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,10 @@ import { CheckCircle2, Package, Truck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-export default function ReceiptPage({ params }: { params: { id: string } }) {
+export default function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
+  // Unwrap Next.js 15 async params
+  const { id } = React.use(params);
+  
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -27,13 +30,16 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
   }, [user, authLoading, router]);
 
   useEffect(() => {
+    if (!id) return;
     loadData();
-  }, [params.id]);
+  }, [id]);
 
   const loadData = async () => {
+    if (!id) return;
+    
     setIsLoading(true);
     try {
-      const orderData = await api.getOrder(Number(params.id));
+      const orderData = await api.getOrder(id); // Pass UUID as string
       setOrder(orderData);
 
       const auctionData = await api.getAuction(orderData.auction_id);
@@ -43,10 +49,10 @@ export default function ReceiptPage({ params }: { params: { id: string } }) {
         const shipmentData = await api.getShipment(orderData.id);
         setShipment(shipmentData);
       } catch (error) {
-        console.log('[v0] Shipment not yet available');
+        console.log('Shipment not yet available');
       }
     } catch (error) {
-      console.error('[v0] Failed to load data:', error);
+      console.error('Failed to load data:', error);
       const message = error instanceof ApiError ? error.message : 'Failed to load data';
       toast({
         title: 'Error',

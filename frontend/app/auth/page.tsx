@@ -57,7 +57,7 @@ export default function AuthPage() {
         description: 'Logged in successfully',
       });
     } catch (error) {
-      console.error('[v0] Login error:', error);
+      console.error('Login error:', error);
       const message = error instanceof ApiError ? error.message : 'Login failed';
       toast({
         title: 'Error',
@@ -100,7 +100,7 @@ export default function AuthPage() {
         description: 'Account created successfully',
       });
     } catch (error) {
-      console.error('[v0] Signup error:', error);
+      console.error('Signup error:', error);
       const message = error instanceof ApiError ? error.message : 'Signup failed';
       toast({
         title: 'Error',

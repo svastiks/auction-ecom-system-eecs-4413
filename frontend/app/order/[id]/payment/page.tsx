@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api, Order, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,10 @@ import { ArrowLeft, CreditCard } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-export default function PaymentPage({ params }: { params: { id: string } }) {
+export default function PaymentPage({ params }: { params: Promise<{ id: string }> }) {
+  // Unwrap Next.js 15 async params
+  const { id } = React.use(params);
+  
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -35,16 +38,19 @@ export default function PaymentPage({ params }: { params: { id: string } }) {
   }, [user, authLoading, router]);
 
   useEffect(() => {
+    if (!id) return;
     loadOrder();
-  }, [params.id]);
+  }, [id]);
 
   const loadOrder = async () => {
+    if (!id) return;
+    
     setIsLoading(true);
     try {
-      const orderData = await api.getOrder(Number(params.id));
+      const orderData = await api.getOrder(id); // Pass UUID as string
       setOrder(orderData);
     } catch (error) {
-      console.error('[v0] Failed to load order:', error);
+      console.error('Failed to load order:', error);
       const message = error instanceof ApiError ? error.message : 'Failed to load order';
       toast({
         title: 'Error',
@@ -120,7 +126,7 @@ export default function PaymentPage({ params }: { params: { id: string } }) {
 
       router.push(`/order/${order.id}/receipt`);
     } catch (error) {
-      console.error('[v0] Payment failed:', error);
+      console.error('Payment failed:', error);
       const message = error instanceof ApiError ? error.message : 'Payment failed';
       toast({
         title: 'Payment Error',

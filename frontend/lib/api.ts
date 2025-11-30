@@ -19,9 +19,9 @@ export async function apiRequest<T>(
     ? localStorage.getItem('accessToken') 
     : null;
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string> || {}),
   };
 
   if (accessToken && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/signup')) {
@@ -37,15 +37,51 @@ export async function apiRequest<T>(
     });
 
     let data;
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      data = await response.json();
+    try {
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        // Try to parse as JSON anyway, might be JSON without proper content-type
+        const text = await response.text();
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch {
+            // Not JSON, use text as message
+            data = { detail: text || `HTTP ${response.status} Error` };
+          }
+        }
+      }
+    } catch (parseError) {
+      // If parsing fails, create a basic error object
+      data = { detail: `HTTP ${response.status} Error` };
     }
 
     if (!response.ok) {
+      // Handle FastAPI validation errors which return arrays
+      let errorMessage: string;
+      if (Array.isArray(data?.detail)) {
+        // FastAPI validation errors are arrays of error objects
+        errorMessage = data.detail
+          .map((e: any) => {
+            if (typeof e === 'string') return e;
+            if (e?.msg) return e.msg;
+            if (e?.message) return e.message;
+            // Format validation error: "Field: message"
+            const field = Array.isArray(e?.loc) && e.loc.length > 1 
+              ? e.loc.slice(1).join('.') 
+              : 'Field';
+            return `${field}: ${e?.msg || e?.message || 'Invalid value'}`;
+          })
+          .join(', ') || `HTTP ${response.status} Error`;
+      } else {
+        errorMessage = data?.detail || data?.message || `HTTP ${response.status} Error`;
+      }
+      
       throw new ApiError(
         response.status,
-        data?.message || data?.detail || `HTTP ${response.status}`,
+        errorMessage,
         data
       );
     }
@@ -89,7 +125,14 @@ export const api = {
     }),
 
   // Users
-  getMe: () => apiRequest<User>('/users/me'),
+  getMe: async () => {
+    const user = await apiRequest<any>('/users/me');
+    // Transform to ensure id field exists (map user_id to id)
+    return {
+      ...user,
+      id: user.user_id || user.id,
+    } as User;
+  },
   
   updateMe: (data: Partial<User>) =>
     apiRequest<User>('/users/me', {
@@ -98,25 +141,54 @@ export const api = {
     }),
 
   // Addresses
-  getAddresses: () => apiRequest<Address[]>('/users/me/addresses'),
+  getAddresses: async () => {
+    const response = await apiRequest<{ addresses: any[], total: number }>('/users/me/addresses');
+    // Backend returns { addresses: [...], total: ... }, extract and transform
+    const addresses = Array.isArray(response.addresses) ? response.addresses : [];
+    return addresses.map((addr: any) => ({
+      ...addr,
+      id: addr.address_id || addr.id, // Map address_id to id
+    })) as Address[];
+  },
   
-  createAddress: (data: AddressInput) =>
-    apiRequest<Address>('/users/me/addresses', {
+  createAddress: async (data: AddressInput) => {
+    const response = await apiRequest<{ message: string, address: Address }>('/users/me/addresses', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+    // Backend returns { message, address }, extract the address
+    const address = response.address || response as any;
+    return {
+      ...address,
+      id: address.address_id || address.id,
+    } as Address;
+  },
   
-  updateAddress: (id: number, data: Partial<AddressInput>) =>
-    apiRequest<Address>(`/users/me/addresses/${id}`, {
+  updateAddress: async (id: string | number, data: Partial<AddressInput>) => {
+    const response = await apiRequest<{ message: string, address: Address }>(`/users/me/addresses/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    }),
+    });
+    // Backend returns { message, address }, extract the address
+    const address = response.address || response as any;
+    return {
+      ...address,
+      id: address.address_id || address.id || id.toString(),
+    } as Address;
+  },
   
-  deleteAddress: (id: number) =>
+  deleteAddress: (id: string | number) =>
     apiRequest(`/users/me/addresses/${id}`, { method: 'DELETE' }),
 
   // Catalogue
-  getCategories: () => apiRequest<Category[]>('/catalogue/categories'),
+  getCategories: async () => {
+    const categories = await apiRequest<Category[]>('/catalogue/categories');
+    // Transform to ensure id field exists (map category_id to id)
+    return Array.isArray(categories) ? categories.map((cat: any) => ({
+      ...cat,
+      id: cat.category_id || cat.id,
+    })) : [];
+  },
   
   createCategory: (data: CategoryInput) =>
     apiRequest<Category>('/catalogue/categories', {
@@ -135,13 +207,26 @@ export const api = {
 
   getItems: () => apiRequest<Item[]>('/catalogue/items'),
   
-  getItem: (id: number) => apiRequest<Item>(`/catalogue/items/${id}`),
+  getItem: async (id: string | number) => {
+    const item = await apiRequest<Item>(`/catalogue/items/${id}`);
+    // Transform to ensure id field exists
+    return {
+      ...item,
+      id: (item as any).item_id || item.id,
+    } as Item;
+  },
   
-  createItem: (data: ItemInput) =>
-    apiRequest<Item>('/catalogue/items', {
+  createItem: async (data: ItemInput) => {
+    const item = await apiRequest<Item>('/catalogue/items', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+    // Transform to ensure id field exists
+    return {
+      ...item,
+      id: (item as any).item_id || item.id,
+    } as Item;
+  },
   
   updateItem: (id: number, data: Partial<ItemInput>) =>
     apiRequest<Item>(`/catalogue/items/${id}`, {
@@ -162,11 +247,17 @@ export const api = {
     apiRequest(`/catalogue/images/${imageId}`, { method: 'DELETE' }),
 
   // Auction
-  createAuction: (data: AuctionInput) =>
-    apiRequest<Auction>('/auction', {
+  createAuction: async (data: AuctionInput) => {
+    const auction = await apiRequest<Auction>('/auction', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+    // Transform to ensure id field exists
+    return {
+      ...auction,
+      id: (auction as any).auction_id || auction.id,
+    } as Auction;
+  },
   
   searchAuctions: (keyword: string) =>
     apiRequest<Auction[]>('/auction/search', {
@@ -174,36 +265,79 @@ export const api = {
       body: JSON.stringify({ keyword }),
     }),
   
-  getItemAuctions: (itemId: number) =>
-    apiRequest<Auction[]>(`/auction/items/${itemId}`),
+  getItemAuctions: async (itemId: string | number) => {
+    const response = await apiRequest<Auction[]>(`/auction/items/${itemId}`);
+    // Transform auctions to ensure id field exists
+    return Array.isArray(response) ? response.map((auction: any) => ({
+      ...auction,
+      id: auction.auction_id || auction.id,
+      item_id: auction.item_id || itemId.toString(),
+    })) : [];
+  },
   
-  getAuction: (id: number) =>
-    apiRequest<Auction>(`/auction/${id}`),
+  getAuction: async (id: string | number) => {
+    const auction = await apiRequest<Auction>(`/auction/${id}`);
+    // Transform to ensure id field exists
+    return {
+      ...auction,
+      id: (auction as any).auction_id || auction.id,
+    } as Auction;
+  },
   
-  placeBid: (auction_id: number, amount: number) =>
-    apiRequest<Bid>('/auction/bid', {
+  placeBid: async (auction_id: string | number, amount: number) => {
+    const bid = await apiRequest<Bid>('/auction/bid', {
       method: 'POST',
       body: JSON.stringify({ auction_id, amount }),
-    }),
+    });
+    // Transform to ensure id field exists
+    return {
+      ...bid,
+      id: (bid as any).bid_id || bid.id,
+      created_at: (bid as any).placed_at || bid.created_at,
+    } as Bid;
+  },
   
-  getAuctionBids: (auctionId: number) =>
-    apiRequest<Bid[]>(`/auction/${auctionId}/bids`),
+  getAuctionBids: async (auctionId: string | number) => {
+    const bids = await apiRequest<Bid[]>(`/auction/${auctionId}/bids`);
+    // Transform bids to ensure id field exists
+    return Array.isArray(bids) ? bids.map((bid: any) => ({
+      ...bid,
+      id: bid.bid_id || bid.id,
+      auction_id: bid.auction_id || auctionId.toString(),
+      created_at: bid.placed_at || bid.created_at,
+    })) : [];
+  },
   
-  getAuctionStatus: (auctionId: number) =>
+  getAuctionStatus: (auctionId: string | number) =>
     apiRequest<{ status: string }>(`/auction/${auctionId}/status`),
   
-  endAuction: (auctionId: number) =>
+  endAuction: (auctionId: string | number) =>
     apiRequest(`/auction/${auctionId}/end`, { method: 'POST' }),
 
   // Orders
+  getMyOrders: async () => {
+    const orders = await apiRequest<Order[]>('/orders');
+    // Transform to ensure id field exists
+    return Array.isArray(orders) ? orders.map((order: any) => ({
+      ...order,
+      id: order.order_id || order.id,
+    })) : [];
+  },
+  
   createOrder: (data: OrderInput) =>
     apiRequest<Order>('/orders', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
   
-  getOrder: (id: number) =>
-    apiRequest<Order>(`/orders/${id}`),
+  getOrder: async (id: string | number) => {
+    const order = await apiRequest<Order>(`/orders/${id}`);
+    // Transform to ensure id field exists
+    return {
+      ...order,
+      id: (order as any).order_id || order.id,
+    } as Order;
+  },
   
   updateShippingMethod: (orderId: number, shipping_method: string) =>
     apiRequest(`/orders/${orderId}/shipping-method`, {
@@ -211,16 +345,27 @@ export const api = {
       body: JSON.stringify({ shipping_method }),
     }),
   
-  payOrder: (orderId: number, payment: PaymentInput) =>
+  payOrder: (orderId: string | number, payment: PaymentInput) =>
     apiRequest(`/orders/${orderId}/pay`, {
       method: 'POST',
       body: JSON.stringify(payment),
     }),
   
-  getShipment: (orderId: number) =>
+  getShipment: (orderId: string | number) =>
     apiRequest<Shipment>(`/orders/${orderId}/shipment`),
 
-  getMyBids: () => apiRequest<Bid[]>('/users/me/bids'),
+  getMyBids: async () => {
+    const response = await apiRequest<{ bids: any[], total: number, page: number, page_size: number, total_pages: number }>('/users/me/bids');
+    // Backend returns { bids: [...], total: ... }, extract and transform
+    const bids = Array.isArray(response.bids) ? response.bids : [];
+    return bids.map((bid: any) => ({
+      ...bid,
+      id: bid.bid_id || bid.id, // Map bid_id to id
+      auction_id: bid.auction_id || bid.id, // Ensure auction_id exists
+      amount: bid.last_bid_amount || bid.amount, // Use last_bid_amount from MyBidItem
+      created_at: bid.placed_at || bid.created_at, // Map placed_at to created_at
+    })) as Bid[];
+  },
 };
 
 // Types
@@ -240,7 +385,8 @@ export interface AuthResponse {
 }
 
 export interface User {
-  id: number;
+  id: string; // UUID from backend (user_id)
+  user_id?: string; // Backend field
   username: string;
   email: string;
   first_name: string;
@@ -249,14 +395,19 @@ export interface User {
 }
 
 export interface Address {
-  id: number;
+  id: string; // UUID from backend (address_id)
+  address_id?: string; // Backend field
+  user_id?: string;
   street_line1: string;
   street_line2?: string;
   city: string;
-  state_region: string;
+  state_region?: string;
   postal_code: string;
   country: string;
+  phone?: string;
   is_default_shipping: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface AddressInput {
@@ -270,7 +421,8 @@ export interface AddressInput {
 }
 
 export interface Category {
-  id: number;
+  id: string; // UUID from backend (category_id)
+  category_id?: string; // Backend field
   name: string;
   description?: string;
 }
@@ -292,16 +444,18 @@ export interface ImageInput {
 }
 
 export interface Item {
-  id: number;
+  id: string; // UUID from backend (item_id)
+  item_id?: string; // Backend field
   title: string;
   description: string;
-  category_id: number;
+  category_id: string; // UUID
   keywords?: string;
   base_price: number;
   shipping_price_normal: number;
   shipping_price_expedited: number;
   shipping_time_days: number;
   is_active: boolean;
+  auction_id?: string; // UUID from backend
   images: ItemImage[];
   category?: Category;
 }
@@ -309,7 +463,7 @@ export interface Item {
 export interface ItemInput {
   title: string;
   description: string;
-  category_id: number;
+  category_id: string | null; // UUID from backend, can be null
   keywords?: string;
   base_price: number;
   shipping_price_normal: number;
@@ -320,17 +474,22 @@ export interface ItemInput {
 }
 
 export interface Auction {
-  id: number;
+  id: string; // UUID from backend (auction_id)
+  auction_id?: string; // Backend field
   auction_type: string;
   starting_price: number;
   min_increment: number;
   start_time: string;
   end_time: string;
   status: string;
-  item_id: number;
+  item_id: string; // UUID
   item?: Item;
   current_highest_bid?: number;
-  highest_bidder_id?: number;
+  highest_bidder_id?: string; // UUID
+  winning_bid_id?: string; // UUID
+  winning_bidder_id?: string; // UUID
+  has_order?: boolean;
+  order_id?: string; // UUID
 }
 
 export interface AuctionInput {
@@ -340,33 +499,48 @@ export interface AuctionInput {
   start_time: string;
   end_time: string;
   status: string;
-  item_id: number;
+  item_id: string; // UUID, not number
 }
 
 export interface Bid {
-  id: number;
-  auction_id: number;
-  user_id: number;
+  id: string; // UUID from backend (bid_id)
+  bid_id?: string; // Backend field
+  auction_id: string; // UUID
+  item_id?: string; // UUID (from MyBidItem)
+  item_title?: string; // From MyBidItem
+  last_bid_amount?: number; // From MyBidItem
+  current_highest_bid?: number; // From MyBidItem
+  placed_at?: string; // Backend field name
+  created_at?: string; // Alias for placed_at
+  time_left_seconds?: number | null;
+  status?: string; // LEADING, OUTBID, ENDED, WON
+  auction_status?: string;
+  auction_end_time?: string;
   amount: number;
-  created_at: string;
+  user_id?: string; // UUID
   user?: User;
 }
 
 export interface Order {
-  id: number;
-  user_id: number;
-  auction_id: number;
+  id: string; // UUID
+  order_id?: string; // Backend field
+  buyer_id?: string; // UUID
+  auction_id: string; // UUID
+  item_id?: string; // UUID
   shipping_method: string;
-  shipping_address_id: number;
+  shipping_address_id: string; // UUID
+  winning_bid_amount?: number;
+  shipping_cost?: number;
   total_amount?: number;
   status: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface OrderInput {
   shipping_method: string;
-  shipping_address_id: number;
-  auction_id: number;
+  shipping_address_id: string; // UUID
+  auction_id: string; // UUID
 }
 
 export interface PaymentInput {

@@ -139,13 +139,16 @@ export default function ItemAuctionsPage({
             const endTime = new Date(auction.end_time);
             const hasEnded =
               endTime <= new Date() || auction.status === 'ENDED';
+            
+            // Use auction_id if id is not available
+            const auctionId = auction.id || (auction as any).auction_id || String(Math.random());
 
             return (
-              <Card key={auction.id}>
+              <Card key={auctionId}>
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div>
-                      <CardTitle>Auction #{auction.id}</CardTitle>
+                      <CardTitle>Auction #{auctionId}</CardTitle>
                       <CardDescription>
                         {hasEnded ? 'Ended' : 'Ends'} on{' '}
                         {endTime.toLocaleString()}
@@ -170,7 +173,7 @@ export default function ItemAuctionsPage({
                         increment: ${(auction.min_increment / 100).toFixed(2)}
                       </p>
                     </div>
-                    <Link href={`/auction/${auction.id}`}>
+                    <Link href={`/auction/${auctionId}`}>
                       <Button>
                         {hasEnded ? 'View Results' : 'View & Bid'}
                       </Button>

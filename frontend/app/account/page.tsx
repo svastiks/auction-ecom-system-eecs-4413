@@ -40,7 +40,7 @@ export default function AccountPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [addressDialogOpen, setAddressDialogOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
-  const [deleteAddressId, setDeleteAddressId] = useState<number | null>(null);
+  const [deleteAddressId, setDeleteAddressId] = useState<string | null>(null);
 
   const [profileData, setProfileData] = useState({
     first_name: '',
@@ -83,7 +83,7 @@ export default function AccountPage() {
       const addressesData = await api.getAddresses();
       setAddresses(addressesData);
     } catch (error) {
-      console.error('[v0] Failed to load addresses:', error);
+      console.error('Failed to load addresses:', error);
       const message = error instanceof ApiError ? error.message : 'Failed to load addresses';
       toast({
         title: 'Error',
@@ -118,7 +118,7 @@ export default function AccountPage() {
         description: 'Profile updated successfully',
       });
     } catch (error) {
-      console.error('[v0] Failed to update profile:', error);
+      console.error('Failed to update profile:', error);
       const message = error instanceof ApiError ? error.message : 'Failed to update profile';
       toast({
         title: 'Error',
@@ -164,7 +164,7 @@ export default function AccountPage() {
       setAddressDialogOpen(false);
       resetAddressForm();
     } catch (error) {
-      console.error('[v0] Failed to save address:', error);
+      console.error('Failed to save address:', error);
       const message = error instanceof ApiError ? error.message : 'Failed to save address';
       toast({
         title: 'Error',
@@ -187,7 +187,7 @@ export default function AccountPage() {
       });
       await loadAddresses();
     } catch (error) {
-      console.error('[v0] Failed to delete address:', error);
+      console.error('Failed to delete address:', error);
       const message = error instanceof ApiError ? error.message : 'Failed to delete address';
       toast({
         title: 'Error',
@@ -471,11 +471,13 @@ export default function AccountPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {addresses.map((address) => (
-                    <div
-                      key={address.id}
-                      className="p-4 rounded-lg border flex items-start justify-between"
-                    >
+                  {addresses.map((address) => {
+                    const addressId = address.id || address.address_id || String(Math.random());
+                    return (
+                      <div
+                        key={addressId}
+                        className="p-4 rounded-lg border flex items-start justify-between"
+                      >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -509,13 +511,14 @@ export default function AccountPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setDeleteAddressId(address.id)}
+                          onClick={() => setDeleteAddressId(addressId)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

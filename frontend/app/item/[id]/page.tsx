@@ -18,6 +18,7 @@ export default function ItemDetailPage({ params }: { params: { id: string } }) {
   const [item, setItem] = useState<Item | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [auction, setAuction] = useState<any>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -32,10 +33,21 @@ export default function ItemDetailPage({ params }: { params: { id: string } }) {
   const loadItem = async () => {
     setIsLoading(true);
     try {
-      const itemData = await api.getItem(Number(params.id));
+      const itemData = await api.getItem(params.id);
       setItem(itemData);
+      
+      // If item has an auction_id, fetch auction info to check if it's sold
+      if (itemData.auction_id) {
+        try {
+          const auctionData = await api.getAuction(itemData.auction_id);
+          setAuction(auctionData);
+        } catch (error) {
+          // Auction might not exist, that's okay
+          console.log('Auction not found for item');
+        }
+      }
     } catch (error) {
-      console.error('[v0] Failed to load item:', error);
+      console.error('Failed to load item:', error);
       const message = error instanceof ApiError ? error.message : 'Failed to load item';
       toast({
         title: 'Error',
@@ -163,11 +175,32 @@ export default function ItemDetailPage({ params }: { params: { id: string } }) {
             </Card>
           )}
 
-          <Link href={`/auction/item/${item.id}`}>
-            <Button size="lg" className="w-full">
-              View Active Auctions
-            </Button>
-          </Link>
+          {item.auction_id && (
+            <>
+              {auction?.has_order ? (
+                <div className="p-4 bg-muted rounded-lg border text-center">
+                  <p className="font-semibold mb-2">Item Sold</p>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    This item has been sold
+                    {auction.current_highest_bid && (
+                      <> for ${(auction.current_highest_bid / 100).toFixed(2)}</>
+                    )}
+                  </p>
+                  <Link href={`/auction/${item.auction_id}`}>
+                    <Button variant="outline" size="sm">
+                      View Auction Details
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <Link href={`/auction/${item.auction_id}`}>
+                  <Button size="lg" className="w-full">
+                    View Active Auctions
+                  </Button>
+                </Link>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

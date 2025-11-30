@@ -24,7 +24,7 @@ class Auction(Base):
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     # Relationships
-    item = relationship("CatalogueItem", back_populates="auction")
+    item = relationship("CatalogueItem", foreign_keys=[item_id])
     winning_bidder = relationship("User", back_populates="auctions")
     bids = relationship("Bid", back_populates="auction", cascade="all, delete-orphan")
     order = relationship("Order", back_populates="auction", uselist=False)

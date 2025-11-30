@@ -51,7 +51,7 @@ export default function CreateOrderPage() {
     setIsLoading(true);
     try {
       const [auctionData, addressesData] = await Promise.all([
-        api.getAuction(Number(auctionId)),
+        api.getAuction(auctionId), // Don't convert UUID to number, pass as string
         api.getAddresses(),
       ]);
       
@@ -66,11 +66,24 @@ export default function CreateOrderPage() {
         setSelectedAddressId(String(addressesData[0].id));
       }
     } catch (error) {
-      console.error('[v0] Failed to load data:', error);
-      const message = error instanceof ApiError ? error.message : 'Failed to load data';
+      console.error('Failed to load data:', error);
+      let errorMessage = 'Failed to load data';
+      
+      if (error instanceof ApiError) {
+        // Extract error message properly
+        errorMessage = 
+          error.message || 
+          error.data?.detail || 
+          error.data?.message || 
+          (Array.isArray(error.data?.detail) ? error.data.detail.map((e: any) => e.msg || e.message || String(e)).join(', ') : null) ||
+          `Error ${error.status}: ${error.status === 400 ? 'Bad Request' : error.status === 404 ? 'Not Found' : error.status === 422 ? 'Invalid Request' : error.status === 500 ? 'Server Error' : 'Unknown Error'}`;
+      } else if (error instanceof Error) {
+        errorMessage = error.message || 'An unexpected error occurred';
+      }
+      
       toast({
         title: 'Error',
-        description: message,
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -95,8 +108,8 @@ export default function CreateOrderPage() {
     try {
       const order = await api.createOrder({
         shipping_method: shippingMethod,
-        shipping_address_id: Number(selectedAddressId),
-        auction_id: auction.id,
+        shipping_address_id: selectedAddressId, // Already a string UUID
+        auction_id: auction.id, // Already a string UUID
       });
       
       toast({
@@ -106,11 +119,24 @@ export default function CreateOrderPage() {
       
       router.push(`/order/${order.id}/payment`);
     } catch (error) {
-      console.error('[v0] Failed to create order:', error);
-      const message = error instanceof ApiError ? error.message : 'Failed to create order';
+      console.error('Failed to create order:', error);
+      let errorMessage = 'Failed to create order';
+      
+      if (error instanceof ApiError) {
+        // Extract error message properly
+        errorMessage = 
+          error.message || 
+          error.data?.detail || 
+          error.data?.message || 
+          (Array.isArray(error.data?.detail) ? error.data.detail.map((e: any) => e.msg || e.message || String(e)).join(', ') : null) ||
+          `Error ${error.status}: ${error.status === 400 ? 'Bad Request' : error.status === 404 ? 'Not Found' : error.status === 422 ? 'Invalid Request' : error.status === 500 ? 'Server Error' : 'Unknown Error'}`;
+      } else if (error instanceof Error) {
+        errorMessage = error.message || 'An unexpected error occurred';
+      }
+      
       toast({
         title: 'Error',
-        description: message,
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -134,11 +160,18 @@ export default function CreateOrderPage() {
     );
   }
 
-  const winningBid = auction.current_highest_bid || auction.starting_price;
+  // Calculate winning bid amount - use current_highest_bid if available, otherwise starting_price
+  const winningBid = (auction.current_highest_bid != null && auction.current_highest_bid !== undefined)
+    ? Number(auction.current_highest_bid)
+    : Number(auction.starting_price) || 0;
+  
+  // Get shipping cost - ensure values are numbers
   const shippingCost = shippingMethod === 'NORMAL' 
-    ? auction.item.shipping_price_normal 
-    : auction.item.shipping_price_expedited;
-  const totalAmount = winningBid + shippingCost;
+    ? Number(auction.item?.shipping_price_normal) || 0
+    : Number(auction.item?.shipping_price_expedited) || 0;
+  
+  // Calculate total - ensure both are valid numbers
+  const totalAmount = (winningBid || 0) + (shippingCost || 0);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">

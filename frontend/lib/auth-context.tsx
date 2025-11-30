@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = await api.getMe();
       setUser(userData);
     } catch (error) {
-      console.error('[v0] Failed to fetch user:', error);
+      console.error('Failed to fetch user:', error);
       localStorage.removeItem('accessToken');
       setUser(null);
     } finally {

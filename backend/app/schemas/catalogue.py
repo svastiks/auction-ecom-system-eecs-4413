@@ -84,6 +84,7 @@ class CatalogueItemUpdate(BaseModel):
 class CatalogueItemRead(CatalogueItemBase):
     item_id: UUID
     seller_id: UUID
+    auction_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
     images: List[ItemImage] = []

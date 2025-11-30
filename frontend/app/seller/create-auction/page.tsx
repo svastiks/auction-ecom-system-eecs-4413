@@ -22,6 +22,7 @@ export default function CreateAuctionPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [categories, setCategories] = useState<Category[]>([])
+  console.log(categories)
   const [isLoading, setIsLoading] = useState(false)
   const [imageUrls, setImageUrls] = useState<string[]>([""])
 
@@ -94,81 +95,106 @@ export default function CreateAuctionPage() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
+    e.preventDefault();
+  
     // Validation - Item fields
     if (!itemData.title || !itemData.description || !itemData.category_id) {
       toast({
         title: "Validation Error",
         description: "Title, description, and category are required",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-
-    const validImageUrls = imageUrls.filter((url) => url.trim() !== "")
+  
+    const validImageUrls = imageUrls.filter((url) => url.trim() !== "");
     if (validImageUrls.length === 0) {
       toast({
         title: "Validation Error",
         description: "At least one image URL is required",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-
-    const shipping_price_normal = Math.round(Number.parseFloat(itemData.shipping_price_normal) * 100)
-    const shipping_price_expedited = Math.round(Number.parseFloat(itemData.shipping_price_expedited) * 100)
-
+  
+    const shipping_price_normal = Math.round(Number.parseFloat(itemData.shipping_price_normal) * 100);
+    const shipping_price_expedited = Math.round(Number.parseFloat(itemData.shipping_price_expedited) * 100);
+  
     // Validation - Auction fields
-    const starting_price = Math.round(Number.parseFloat(auctionData.starting_price) * 100)
-    const min_increment = Math.round(Number.parseFloat(auctionData.min_increment) * 100)
-
+    const starting_price = Math.round(Number.parseFloat(auctionData.starting_price) * 100);
+    const min_increment = Math.round(Number.parseFloat(auctionData.min_increment) * 100);
+  
     if (isNaN(starting_price) || starting_price <= 0) {
       toast({
         title: "Validation Error",
         description: "Starting price must be a valid positive number",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-
+  
     if (min_increment < 100) {
       toast({
         title: "Validation Error",
         description: "Minimum increment must be at least $1",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-
-    const startTime = new Date(auctionData.start_time)
-    const endTime = new Date(auctionData.end_time)
-
-    if (startTime >= endTime) {
+  
+    // datetime-local returns local time without timezone, so we need to treat it as local and convert to UTC
+    // The input format is "YYYY-MM-DDTHH:mm" (local time)
+    const startTimeLocal = new Date(auctionData.start_time);
+    const endTimeLocal = new Date(auctionData.end_time);
+    
+    // Validate times are in the future (using local time comparison)
+    const nowLocal = new Date();
+    if (startTimeLocal <= nowLocal) {
+      toast({
+        title: "Validation Error",
+        description: "Start time must be in the future",
+        variant: "destructive",
+      });
+      return;
+    }
+  
+    if (startTimeLocal >= endTimeLocal) {
       toast({
         title: "Validation Error",
         description: "End time must be after start time",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-
-    if (endTime <= new Date()) {
+  
+    if (endTimeLocal <= nowLocal) {
       toast({
         title: "Validation Error",
         description: "End time must be in the future",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-
-    setIsLoading(true)
-
+  
+    setIsLoading(true);
+  
     try {
+      // Validate category_id is not empty
+      if (!itemData.category_id || itemData.category_id === '') {
+        toast({
+          title: "Validation Error",
+          description: "Please select a category",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Create Item - category_id is UUID string, not number
       const itemInput: ItemInput = {
         title: itemData.title,
         description: itemData.description,
-        category_id: Number(itemData.category_id),
+        category_id: itemData.category_id, // Keep as UUID string, don't convert to number
         keywords: itemData.keywords || undefined,
         shipping_price_normal,
         shipping_price_expedited,
@@ -178,50 +204,67 @@ export default function CreateAuctionPage() {
           url,
           position: index,
         })),
-      }
+        base_price: starting_price, // Include base_price using starting_price
+      };
+  
+      const createdItem = await api.createItem(itemInput);
+      console.log("Created Item Response:", createdItem);
 
-      const createdItem = await api.createItem(itemInput)
-      console.log("[v0] Created item:", createdItem)
-
-      const itemId = createdItem.id || (createdItem as any).item_id
-
+      // Extract item_id - backend returns UUID as item_id or id
+      const itemId = createdItem.id || (createdItem as any).item_id;
+      
       if (!itemId) {
-        throw new Error("Failed to get item ID from API response")
+        console.error("Item response:", createdItem);
+        throw new Error(`Failed to get item ID from API response. Response: ${JSON.stringify(createdItem)}`);
       }
 
+      console.log("Creating auction with item_id:", itemId);
+      console.log("Start time (local):", startTimeLocal);
+      console.log("Start time (ISO):", startTimeLocal.toISOString());
+      console.log("End time (local):", endTimeLocal);
+      console.log("End time (ISO):", endTimeLocal.toISOString());
+
+      // Create Auction - item_id must be UUID string
+      // Convert local times to ISO strings (which will be in UTC)
       const auctionInput: AuctionInput = {
         auction_type: "FORWARD",
         starting_price,
         min_increment,
-        start_time: startTime.toISOString(),
-        end_time: endTime.toISOString(),
+        start_time: startTimeLocal.toISOString(),
+        end_time: endTimeLocal.toISOString(),
         status: "ACTIVE",
-        item_id: itemId,
-      }
-
-      const createdAuction = await api.createAuction(auctionInput)
-      console.log("[v0] Created auction:", createdAuction)
-
-      const auctionId = createdAuction.id || (createdAuction as any).auction_id
-
+        item_id: String(itemId), // Ensure it's a string (UUID)
+      };
+  
+      console.log("Auction input:", JSON.stringify(auctionInput, null, 2));
+      const createdAuction = await api.createAuction(auctionInput);
+      console.log("Created Auction Response:", createdAuction);
+  
+      const auctionId = createdAuction.id || (createdAuction as any).auction_id;
+  
       toast({
         title: "Success",
         description: "Item and auction created successfully",
-      })
-
-      router.push(`/auction/${auctionId}`)
+      });
+  
+      router.push(`/auction/${auctionId}`);
     } catch (error) {
-      console.error("[v0] Failed to create item/auction:", error)
-      const message = error instanceof ApiError ? error.message : "Failed to create item and auction"
+      console.error("Failed to create item/auction:", error);
+      let errorMessage = "Failed to create item and auction";
+      if (error instanceof ApiError) {
+        errorMessage = error.message || error.data?.detail || error.data?.message || `Error: ${error.status}`;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       toast({
         title: "Error",
-        description: message,
+        description: errorMessage,
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
@@ -266,18 +309,21 @@ export default function CreateAuctionPage() {
               <div className="space-y-2">
                 <Label htmlFor="category">Category *</Label>
                 <Select
-                  value={itemData.category_id}
+                  value={itemData.category_id || undefined}
                   onValueChange={(value) => setItemData({ ...itemData, category_id: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="category">
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={String(category.id)}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
+                    {categories.map((category) => {
+                      const categoryId = String(category.id || category.category_id || '');
+                      return (
+                        <SelectItem key={categoryId} value={categoryId}>
+                          {category.name}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>

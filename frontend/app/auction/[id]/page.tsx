@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { api, Auction, Bid, ApiError } from '@/lib/api';
+import { useParams } from "next/navigation";
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,10 +15,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuctionTimer } from '@/lib/use-auction-timer';
 
-export default function AuctionDetailPage({ params }: { params: { id: string } }) {
+export default function AuctionDetailPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const params = useParams();
   const [auction, setAuction] = useState<Auction | null>(null);
   const [bids, setBids] = useState<Bid[]>([]);
   const [bidAmount, setBidAmount] = useState('');
@@ -32,8 +34,9 @@ export default function AuctionDetailPage({ params }: { params: { id: string } }
   }, [user, authLoading, router]);
 
   useEffect(() => {
+    if (!params?.id) return;
     loadAuctionData();
-  }, [params.id]);
+  }, [params?.id]);
 
   useEffect(() => {
     if (!auction || auction.status !== 'ACTIVE') return;
@@ -46,10 +49,16 @@ export default function AuctionDetailPage({ params }: { params: { id: string } }
   }, [auction?.status, params.id]);
 
   const loadAuctionData = async () => {
+    if (!params?.id || params.id === 'undefined') {
+      setIsLoading(false);
+      return;
+    }
+    
     try {
+      const auctionId = params.id as string; // UUID is a string, not a number
       const [auctionData, bidsData] = await Promise.all([
-        api.getAuction(Number(params.id)),
-        api.getAuctionBids(Number(params.id)),
+        api.getAuction(auctionId),
+        api.getAuctionBids(auctionId),
       ]);
       setAuction(auctionData);
       setBids(bidsData);
@@ -59,7 +68,7 @@ export default function AuctionDetailPage({ params }: { params: { id: string } }
       const minBid = currentHighest + auctionData.min_increment;
       setBidAmount((minBid / 100).toFixed(2));
     } catch (error) {
-      console.error('[v0] Failed to load auction:', error);
+      console.error('Failed to load auction:', error);
       const message = error instanceof ApiError ? error.message : 'Failed to load auction';
       toast({
         title: 'Error',
@@ -102,7 +111,11 @@ export default function AuctionDetailPage({ params }: { params: { id: string } }
     setIsPlacingBid(true);
 
     try {
-      await api.placeBid(auction.id, amount);
+      const auctionId = auction.id || (auction as any).auction_id || params?.id;
+      if (!auctionId) {
+        throw new Error('Auction ID is missing');
+      }
+      await api.placeBid(auctionId as string, amount);
       
       toast({
         title: 'Success',
@@ -112,11 +125,31 @@ export default function AuctionDetailPage({ params }: { params: { id: string } }
       // Reload auction data
       await loadAuctionData();
     } catch (error) {
-      console.error('[v0] Failed to place bid:', error);
-      const message = error instanceof ApiError ? error.message : 'Failed to place bid';
+      console.error('Failed to place bid:', error);
+      let errorMessage = 'Failed to place bid';
+      
+      if (error instanceof ApiError) {
+        // Try multiple ways to extract the error message
+        errorMessage = 
+          error.message || 
+          error.data?.detail || 
+          error.data?.message || 
+          (error.data && typeof error.data === 'string' ? error.data : null) ||
+          `Error ${error.status}: ${error.status === 400 ? 'Bad Request' : error.status === 401 ? 'Unauthorized' : error.status === 404 ? 'Not Found' : error.status === 500 ? 'Server Error' : 'Unknown Error'}`;
+      } else if (error instanceof Error) {
+        errorMessage = error.message || 'An unexpected error occurred';
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      // Ensure we always have a message
+      if (!errorMessage || errorMessage.trim() === '') {
+        errorMessage = 'Failed to place bid. Please try again.';
+      }
+      
       toast({
         title: 'Error',
-        description: message,
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -141,8 +174,12 @@ export default function AuctionDetailPage({ params }: { params: { id: string } }
   }
 
   const currentHighest = auction.current_highest_bid || auction.starting_price;
-  const isWinner = auction.highest_bidder_id === user?.id;
   const hasEnded = auction.status === 'ENDED' || timeRemaining.isEnded;
+  const isWinner = hasEnded && auction.winning_bidder_id === user?.id;
+  console.log(auction);
+  console.log(user?.id);
+  const hasOrder = auction.has_order || false;
+  const isSold = hasOrder;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
@@ -262,7 +299,23 @@ export default function AuctionDetailPage({ params }: { params: { id: string } }
                 </div>
               )}
 
-              {hasEnded && isWinner && (
+              {hasEnded && isSold && (
+                <div className="p-4 bg-muted rounded-lg border text-center">
+                  <p className="font-semibold mb-2">Item Sold</p>
+                  <p className="text-sm text-muted-foreground">
+                    This item has been sold for ${(currentHighest / 100).toFixed(2)}
+                  </p>
+                  {isWinner && auction.order_id && (
+                    <Link href={`/order/${auction.order_id}/receipt`} className="mt-3 inline-block">
+                      <Button variant="outline" size="sm">
+                        View Order
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              )}
+
+              {hasEnded && isWinner && !isSold && (
                 <div className="p-4 bg-primary/10 rounded-lg border border-primary">
                   <p className="text-center font-semibold mb-3 text-primary">
                     🎉 You won this auction!
@@ -275,7 +328,7 @@ export default function AuctionDetailPage({ params }: { params: { id: string } }
                 </div>
               )}
 
-              {hasEnded && !isWinner && (
+              {hasEnded && !isWinner && !isSold && (
                 <div className="p-4 bg-muted rounded-lg text-center">
                   <p className="text-muted-foreground">
                     Auction ended. You did not win.

@@ -79,6 +79,8 @@ class Auction(AuctionBase):
     current_highest_bid: Optional[Decimal] = None
     current_highest_bidder_id: Optional[UUID] = None
     remaining_time_seconds: Optional[int] = None
+    has_order: Optional[bool] = False
+    order_id: Optional[UUID] = None
 
     class Config:
         from_attributes = True

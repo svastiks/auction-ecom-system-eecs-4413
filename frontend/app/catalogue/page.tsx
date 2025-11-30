@@ -59,7 +59,7 @@ export default function CataloguePage() {
       setItems(normalizedItems);
       setCategories(categoriesData);
     } catch (error) {
-      console.error('[v0] Failed to load catalogue:', error);
+      console.error('Failed to load catalogue:', error);
       const message =
         error instanceof ApiError ? error.message : 'Failed to load catalogue';
       toast({
@@ -97,7 +97,7 @@ export default function CataloguePage() {
         });
       }
     } catch (error) {
-      console.error('[v0] Search error:', error);
+      console.error('Search error:', error);
       const message = error instanceof ApiError ? error.message : 'Search failed';
       toast({
         title: 'Error',
@@ -220,7 +220,7 @@ export default function CataloguePage() {
                 </CardContent>
                 <CardFooter className="gap-2">
                   {hasId ? (
-                    <Link href={`/auction/item/${item.id}`} className="flex-1">
+                    <Link href={`/auction/${item.auction_id}`} className="flex-1">
                       <Button className="w-full">View Auction Details</Button>
                     </Link>
                   ) : (

@@ -35,6 +35,7 @@ class CatalogueItem(Base):
     shipping_price_expedited = Column(Numeric(12, 2), nullable=False)
     shipping_time_days = Column(Integer, nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
+    auction_id = Column(UUID(as_uuid=True), ForeignKey("auctions.auction_id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
@@ -42,13 +43,14 @@ class CatalogueItem(Base):
     seller = relationship("User", back_populates="catalogue_items")
     category = relationship("Category", back_populates="catalogue_items")
     images = relationship("ItemImage", back_populates="item", cascade="all, delete-orphan")
-    auction = relationship("Auction", back_populates="item", uselist=False)
+    auction = relationship("Auction", foreign_keys=[auction_id], uselist=False, post_update=True)
     orders = relationship("Order", back_populates="item")
 
     # Indexes
     __table_args__ = (
         Index('idx_items_category', 'category_id'),
         Index('idx_items_seller', 'seller_id'),
+        Index('idx_catalogue_items_auction_id', 'auction_id'),
     )
 
 

@@ -3,7 +3,7 @@ Orders endpoints for UC4/UC5/UC6: Pay Now, payment capture, receipt and shipment
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 from decimal import Decimal
 from datetime import datetime
@@ -33,6 +33,24 @@ from app.schemas.auction import AuctionStatus
 from app.services.payment_service import PaymentService
 
 router = APIRouter()
+
+
+@router.get("", response_model=List[OrderResponse])
+async def get_my_orders(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all orders for the current user.
+    """
+    orders = db.query(Order).options(
+        joinedload(Order.auction).joinedload(Auction.item),
+        joinedload(Order.payment),
+        joinedload(Order.receipt),
+        joinedload(Order.shipment)
+    ).filter(Order.buyer_id == current_user.user_id).order_by(Order.created_at.desc()).all()
+    
+    return orders
 
 
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
@@ -87,18 +105,33 @@ async def create_order(
             detail="Shipping address not found or does not belong to you"
         )
     
-    # Get winning bid amount
-    winning_bid = db.query(Bid).filter(
-        Bid.bid_id == auction.winning_bid_id
-    ).first()
-    
-    if not winning_bid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Winning bid not found"
-        )
-    
-    winning_bid_amount = winning_bid.amount
+    # Get winning bid amount and buyer
+    # If there's a winning bid, use it; otherwise use starting price (auction ended with no bids)
+    if auction.winning_bid_id:
+        winning_bid = db.query(Bid).filter(
+            Bid.bid_id == auction.winning_bid_id
+        ).first()
+        
+        if not winning_bid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Winning bid not found"
+            )
+        
+        winning_bid_amount = winning_bid.amount
+        buyer_id = auction.winning_bidder_id
+        
+        # Verify that the current user is the winning bidder
+        if buyer_id != current_user.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only the winning bidder can create an order for this auction"
+            )
+    else:
+        # Auction ended with no bids, use starting price
+        # The current user can buy at starting price
+        winning_bid_amount = auction.starting_price
+        buyer_id = current_user.user_id
     
     # Calculate shipping cost and total
     shipping_cost, total_amount = PaymentService.calculate_total(
@@ -111,7 +144,7 @@ async def create_order(
     # Create order
     order = Order(
         auction_id=order_data.auction_id,
-        buyer_id=auction.winning_bidder_id,
+        buyer_id=buyer_id,
         item_id=auction.item_id,
         winning_bid_amount=winning_bid_amount,
         shipping_method=order_data.shipping_method.value,
