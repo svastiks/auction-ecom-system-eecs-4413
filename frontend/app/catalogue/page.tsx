@@ -17,11 +17,114 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Package } from 'lucide-react';
+import { Search, Package, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuctionTimer } from '@/lib/use-auction-timer';
 
 type ViewFilter = 'active' | 'ended' | 'my-auctions';
+
+// Auction Card Component with Timer
+function AuctionCard({
+  item,
+  auction,
+  categoryName
+}: {
+  item: Item;
+  auction: Auction | undefined;
+  categoryName: string;
+}) {
+  const timeRemaining = useAuctionTimer(auction?.end_time || '');
+  const hasId = item.id != null;
+  const isActive = auction && new Date(auction.end_time) > new Date();
+
+  return (
+    <Card key={`${item.id ?? item.title}-${item.category_id}`} className="overflow-hidden">
+      <div className="aspect-video bg-muted relative">
+        {item.images && item.images.length > 0 ? (
+          <img
+            src={item.images[0].url || '/placeholder.svg'}
+            alt={item.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Package className="h-12 w-12 text-muted-foreground" />
+          </div>
+        )}
+        {!item.is_active && (
+          <Badge className="absolute top-2 right-2" variant="secondary">
+            Inactive
+          </Badge>
+        )}
+      </div>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="text-lg">{item.title}</CardTitle>
+          <Badge variant="outline">{categoryName}</Badge>
+        </div>
+        <CardDescription className="line-clamp-2">
+          {item.description}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Base Price:</span>
+            <span className="font-semibold">
+              ${(item.base_price / 100).toFixed(2)}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Shipping:</span>
+            <span>${(item.shipping_price_normal / 100).toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Delivery:</span>
+            <span>{item.shipping_time_days} days</span>
+          </div>
+          {isActive && !timeRemaining.isEnded && (
+            <div className="pt-2 border-t">
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground text-xs">Time Remaining:</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1 text-center">
+                <div>
+                  <p className="text-lg font-bold">{timeRemaining.days}</p>
+                  <p className="text-[10px] text-muted-foreground">Days</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold">{timeRemaining.hours}</p>
+                  <p className="text-[10px] text-muted-foreground">Hrs</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold">{timeRemaining.minutes}</p>
+                  <p className="text-[10px] text-muted-foreground">Mins</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold">{timeRemaining.seconds}</p>
+                  <p className="text-[10px] text-muted-foreground">Secs</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </CardContent>
+      <CardFooter className="gap-2">
+        {hasId ? (
+          <Link href={`/auction/${item.auction_id}`} className="flex-1">
+            <Button className="w-full">View Auction Details</Button>
+          </Link>
+        ) : (
+          <Button className="w-full" disabled>
+            Missing Item ID
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
+  );
+}
 
 export default function CataloguePage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -318,66 +421,14 @@ export default function CataloguePage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {displayedItems.map((item) => {
-            const hasId = item.id != null;
+            const auction = allAuctions.find((a: any) => a.auction_id === item.auction_id);
             return (
-              <Card key={`${item.id ?? item.title}-${item.category_id}`} className="overflow-hidden">
-                <div className="aspect-video bg-muted relative">
-                  {item.images && item.images.length > 0 ? (
-                    <img
-                      src={item.images[0].url || '/placeholder.svg'}
-                      alt={item.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Package className="h-12 w-12 text-muted-foreground" />
-                    </div>
-                  )}
-                  {!item.is_active && (
-                    <Badge className="absolute top-2 right-2" variant="secondary">
-                      Inactive
-                    </Badge>
-                  )}
-                </div>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-lg">{item.title}</CardTitle>
-                    <Badge variant="outline">{getCategoryName(item)}</Badge>
-                  </div>
-                  <CardDescription className="line-clamp-2">
-                    {item.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Base Price:</span>
-                      <span className="font-semibold">
-                        ${(item.base_price / 100).toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Shipping:</span>
-                      <span>${(item.shipping_price_normal / 100).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Delivery:</span>
-                      <span>{item.shipping_time_days} days</span>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="gap-2">
-                  {hasId ? (
-                    <Link href={`/auction/${item.auction_id}`} className="flex-1">
-                      <Button className="w-full">View Auction Details</Button>
-                    </Link>
-                  ) : (
-                    <Button className="w-full" disabled>
-                      Missing Item ID
-                    </Button>
-                  )}
-                </CardFooter>
-              </Card>
+              <AuctionCard
+                key={`${item.id ?? item.title}-${item.category_id}`}
+                item={item}
+                auction={auction}
+                categoryName={getCategoryName(item)}
+              />
             );
           })}
         </div>

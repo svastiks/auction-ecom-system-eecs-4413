@@ -16,7 +16,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { ApiError, api } from '@/lib/api';
+import { ApiError, api, AddressInput } from '@/lib/api';
+import { Checkbox } from '@/components/ui/checkbox';
+import { MapPin } from 'lucide-react';
 
 export default function AuthPage() {
   const { login, signup } = useAuth();
@@ -38,6 +40,19 @@ export default function AuthPage() {
     phone: '',
     password: '',
   });
+
+  // Address state for sign up
+  const [addressData, setAddressData] = useState<AddressInput>({
+    street_line1: '',
+    street_line2: '',
+    city: '',
+    state_region: '',
+    postal_code: '',
+    country: '',
+    is_default_shipping: true,
+  });
+  const [addressDialogOpen, setAddressDialogOpen] = useState(false);
+  const [hasAddress, setHasAddress] = useState(false);
 
   // Forgot Password state
   const [forgotEmail, setForgotEmail] = useState('');
@@ -94,7 +109,13 @@ export default function AuthPage() {
     setIsLoading(true);
 
     try {
-      await signup(signUpData);
+      // Combine signup data with address data
+      const signupPayload = {
+        ...signUpData,
+        address: hasAddress ? addressData : undefined,
+      };
+
+      await signup(signupPayload);
       toast({
         title: 'Success',
         description: 'Account created successfully',
@@ -112,20 +133,75 @@ export default function AuthPage() {
     }
   };
 
+  const handleAddressSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation(); // Prevent triggering parent form submission
+
+    if (!addressData.street_line1 || !addressData.city || !addressData.state_region ||
+        !addressData.postal_code || !addressData.country) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please fill in all required address fields',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setHasAddress(true);
+    setAddressDialogOpen(false);
+    toast({
+      title: 'Address Added',
+      description: 'Address will be saved when you create your account',
+    });
+  };
+
+  const resetAddressForm = () => {
+    setAddressData({
+      street_line1: '',
+      street_line2: '',
+      city: '',
+      state_region: '',
+      postal_code: '',
+      country: '',
+      is_default_shipping: true,
+    });
+    setHasAddress(false);
+  };
+
   const handleForgotPassword = async () => {
     setIsLoading(true);
     try {
-      await api.forgotPassword(forgotEmail);
-      setForgotStep('reset');
-      toast({
-        title: 'Success',
-        description: 'Password reset token sent to your email',
-      });
+      const response = await api.forgotPassword(forgotEmail);
+
+      // Check if email was verified (token was generated)
+      const message = (response as any).message || '';
+
+      if (message.includes('Password reset token:')) {
+        // Extract token from the message
+        const token = message.replace('Password reset token:', '').trim();
+
+        // Log to console
+        console.log(`Email verified. Reset token is: ${token}`);
+
+        // Show success toast
+        toast({
+          title: 'Token sent',
+          description: 'Check console for reset token',
+        });
+
+        // Move to reset step
+        setForgotStep('reset');
+      } else {
+        // Email not found in database
+        toast({
+          title: 'Email not verified. Try Again.',
+          variant: 'destructive',
+        });
+      }
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : 'Failed to send reset email';
+      console.error('Forgot password error:', error);
       toast({
-        title: 'Error',
-        description: message,
+        title: 'Email not verified. Try Again.',
         variant: 'destructive',
       });
     } finally {
@@ -351,6 +427,46 @@ export default function AuthPage() {
                     Must be at least 8 characters
                   </p>
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Shipping Address (Optional)</Label>
+                  {hasAddress ? (
+                    <div className="p-3 rounded-lg border bg-muted/50">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            <p className="text-sm font-medium">{addressData.street_line1}</p>
+                          </div>
+                          {addressData.street_line2 && (
+                            <p className="text-xs text-muted-foreground pl-6">
+                              {addressData.street_line2}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground pl-6">
+                            {addressData.city}, {addressData.state_region} {addressData.postal_code}
+                          </p>
+                          <p className="text-xs text-muted-foreground pl-6">
+                            {addressData.country}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setAddressDialogOpen(true)}
+                        >
+                          Edit
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button type="button" variant="outline" className="w-full" onClick={() => setAddressDialogOpen(true)}>
+                      Add Shipping Address
+                    </Button>
+                  )}
+                </div>
+
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? 'Creating account...' : 'Create Account'}
                 </Button>
@@ -359,6 +475,128 @@ export default function AuthPage() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Address Dialog - Outside form to prevent event bubbling */}
+      <Dialog open={addressDialogOpen} onOpenChange={setAddressDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add Shipping Address</DialogTitle>
+            <DialogDescription>
+              Add a shipping address to your account (optional)
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddressSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="street_line1">Street Address *</Label>
+              <Input
+                id="street_line1"
+                required
+                value={addressData.street_line1}
+                onChange={(e) =>
+                  setAddressData({ ...addressData, street_line1: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="street_line2">
+                Apartment, suite, etc. (optional)
+              </Label>
+              <Input
+                id="street_line2"
+                value={addressData.street_line2}
+                onChange={(e) =>
+                  setAddressData({ ...addressData, street_line2: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="city">City *</Label>
+                <Input
+                  id="city"
+                  required
+                  value={addressData.city}
+                  onChange={(e) =>
+                    setAddressData({ ...addressData, city: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="state_region">State/Region *</Label>
+                <Input
+                  id="state_region"
+                  required
+                  value={addressData.state_region}
+                  onChange={(e) =>
+                    setAddressData({ ...addressData, state_region: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="postal_code">Postal Code *</Label>
+                <Input
+                  id="postal_code"
+                  required
+                  value={addressData.postal_code}
+                  onChange={(e) =>
+                    setAddressData({ ...addressData, postal_code: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="country">Country *</Label>
+                <Input
+                  id="country"
+                  required
+                  value={addressData.country}
+                  onChange={(e) =>
+                    setAddressData({ ...addressData, country: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="is_default"
+                checked={addressData.is_default_shipping}
+                onCheckedChange={(checked) =>
+                  setAddressData({
+                    ...addressData,
+                    is_default_shipping: checked as boolean,
+                  })
+                }
+              />
+              <Label htmlFor="is_default" className="cursor-pointer">
+                Set as default shipping address
+              </Label>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button type="submit" className="flex-1">
+                Add Address
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setAddressDialogOpen(false);
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
