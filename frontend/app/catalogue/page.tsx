@@ -21,7 +21,7 @@ import { Search, Package } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-type ViewFilter = 'all' | 'active' | 'ended' | 'my-auctions';
+type ViewFilter = 'active' | 'ended' | 'my-auctions';
 
 export default function CataloguePage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -33,7 +33,7 @@ export default function CataloguePage() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
-  const [viewFilter, setViewFilter] = useState<ViewFilter>('all');
+  const [viewFilter, setViewFilter] = useState<ViewFilter>('active');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -190,11 +190,6 @@ export default function CataloguePage() {
   const getFilteredItems = (): Item[] => {
     if (!user) return items;
 
-    // If no filter (all auctions), just return items directly
-    if (viewFilter === 'all') {
-      return items;
-    }
-
     let filteredAuctions = allAuctions;
 
     switch (viewFilter) {
@@ -288,12 +283,6 @@ export default function CataloguePage() {
 
         {/* View Filter Buttons */}
         <div className="flex gap-2 flex-wrap">
-          <Button
-            variant={viewFilter === 'all' ? 'default' : 'outline'}
-            onClick={() => setViewFilter('all')}
-          >
-            All Auctions
-          </Button>
           <Button
             variant={viewFilter === 'active' ? 'default' : 'outline'}
             onClick={() => setViewFilter('active')}
