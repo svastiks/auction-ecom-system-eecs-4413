@@ -112,7 +112,9 @@ async def update_user_address(
     Returns confirmation message: "The shipping address has been updated."
     """
     user_service = UserService(db)
-    address = await user_service.update_address(current_user.user_id, address_id, address_update)
+    import uuid as uuid_module
+    address_id_uuid = uuid_module.UUID(address_id)
+    address = await user_service.update_address(current_user.user_id, address_id_uuid, address_update)
     address_response = AddressResponse.model_validate(address)
     return {
         "message": "The shipping address has been updated.",
@@ -131,7 +133,9 @@ async def delete_user_address(
     - **address_id**: Address ID to delete
     """
     user_service = UserService(db)
-    await user_service.delete_address(current_user.user_id, address_id)
+    import uuid as uuid_module
+    address_id_uuid = uuid_module.UUID(address_id)
+    await user_service.delete_address(current_user.user_id, address_id_uuid)
     return {"message": "Address deleted successfully"}
 
 @router.get("/me/bids", response_model=MyBidsResponse)

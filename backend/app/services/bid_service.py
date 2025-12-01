@@ -123,12 +123,19 @@ class BidService:
             # No bids found (shouldn't happen, but handle it)
             return "LEADING", bid.amount
 
+    def _ensure_timezone_aware(self, dt: datetime) -> datetime:
+        """Ensure datetime is timezone-aware (UTC)."""
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt
+    
     def _calculate_time_left(self, auction: Auction) -> Optional[int]:
         """Calculate time left in seconds for an active auction. Returns None if ended."""
         now = datetime.now(timezone.utc)
+        end_time = self._ensure_timezone_aware(auction.end_time)
         
-        if auction.status != "ACTIVE" or auction.end_time <= now:
+        if auction.status != "ACTIVE" or end_time <= now:
             return None
         
-        time_delta = auction.end_time - now
+        time_delta = end_time - now
         return int(time_delta.total_seconds())

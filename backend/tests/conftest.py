@@ -31,13 +31,36 @@ def event_loop():
 @pytest.fixture(scope="function")
 def db_session():
     """Create a fresh database session for each test."""
-    Base.metadata.create_all(bind=engine)
+    # Import all models except EventLog (SQLite doesn't support JSONB)
+    from app.models.user import User, Address, AuthSession, PasswordResetToken
+    from app.models.catalogue import Category, CatalogueItem, ItemImage
+    from app.models.auction import Auction, Bid
+    from app.models.order import Order, Payment, Receipt, Shipment
+    
+    # Create only the tables we need (excluding EventLog)
+    tables_to_create = [
+        User.__table__,
+        Address.__table__,
+        AuthSession.__table__,
+        PasswordResetToken.__table__,
+        Category.__table__,
+        CatalogueItem.__table__,
+        ItemImage.__table__,
+        Auction.__table__,
+        Bid.__table__,
+        Order.__table__,
+        Payment.__table__,
+        Receipt.__table__,
+        Shipment.__table__,
+    ]
+    
+    Base.metadata.create_all(bind=engine, tables=tables_to_create)
     session = TestingSessionLocal()
     try:
         yield session
     finally:
         session.close()
-        Base.metadata.drop_all(bind=engine)
+        Base.metadata.drop_all(bind=engine, tables=tables_to_create)
 
 @pytest.fixture(scope="function")
 def client(db_session):
