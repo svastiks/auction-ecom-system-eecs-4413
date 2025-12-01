@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api, Auction, Bid, ApiError } from '@/lib/api';
 import { useParams } from "next/navigation";
 import { useAuth } from '@/lib/auth-context';
@@ -25,6 +25,7 @@ export default function AuctionDetailPage() {
   const [bidAmount, setBidAmount] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isPlacingBid, setIsPlacingBid] = useState(false);
+  const userModifiedBidRef = useRef(false);
   const timeRemaining = useAuctionTimer(auction?.end_time || '');
 
   useEffect(() => {
@@ -103,12 +104,14 @@ export default function AuctionDetailPage() {
       ]);
       setAuction(auctionData);
       setBids(bidsData);
-      
-      // Set suggested bid amount
-      const currentHighest = auctionData.current_highest_bid || auctionData.starting_price;
-      const minIncrement = auctionData.min_increment || 100; // Default to $1.00 if not provided
-      const minBid = currentHighest + minIncrement;
-      setBidAmount((minBid / 100).toFixed(2));
+
+      // Only set suggested bid amount if user hasn't modified it
+      if (!userModifiedBidRef.current) {
+        const currentHighest = auctionData.current_highest_bid || auctionData.starting_price;
+        const minIncrement = auctionData.min_increment || 100; // Default to $1.00 if not provided
+        const minBid = currentHighest + minIncrement;
+        setBidAmount((minBid / 100).toFixed(2));
+      }
     } catch (error) {
       console.error('Failed to load auction:', error);
       const message = error instanceof ApiError ? error.message : 'Failed to load auction';
@@ -164,7 +167,10 @@ export default function AuctionDetailPage() {
         title: 'Success',
         description: 'Bid placed successfully',
       });
-      
+
+      // Reset the flag so the bid amount updates with new minimum
+      userModifiedBidRef.current = false;
+
       // Reload auction data
       await loadAuctionData();
     } catch (error) {
@@ -460,7 +466,10 @@ export default function AuctionDetailPage() {
                       min={(currentHighest + minIncrement) / 100}
                       required
                       value={bidAmount}
-                      onChange={(e) => setBidAmount(e.target.value)}
+                      onChange={(e) => {
+                        setBidAmount(e.target.value);
+                        userModifiedBidRef.current = true;
+                      }}
                     />
                     <p className="text-xs text-muted-foreground">
                       Minimum bid: ${((currentHighest + minIncrement) / 100).toFixed(2)}
