@@ -25,6 +25,7 @@ export default function CreateAuctionPage() {
   console.log(categories)
   const [isLoading, setIsLoading] = useState(false)
   const [imageUrls, setImageUrls] = useState<string[]>([""])
+  const [imageFiles, setImageFiles] = useState<(File | null)[]>([null])
 
   const [itemData, setItemData] = useState({
     title: "",
@@ -79,15 +80,35 @@ export default function CreateAuctionPage() {
     const newUrls = [...imageUrls]
     newUrls[index] = value
     setImageUrls(newUrls)
+
+    // Clear the file if URL is entered
+    const newFiles = [...imageFiles]
+    newFiles[index] = null
+    setImageFiles(newFiles)
+  }
+
+  const handleImageFileChange = (index: number, file: File | null) => {
+    const newFiles = [...imageFiles]
+    newFiles[index] = file
+    setImageFiles(newFiles)
+
+    // Clear the URL if file is selected
+    if (file) {
+      const newUrls = [...imageUrls]
+      newUrls[index] = ""
+      setImageUrls(newUrls)
+    }
   }
 
   const addImageUrl = () => {
     setImageUrls([...imageUrls, ""])
+    setImageFiles([...imageFiles, null])
   }
 
   const removeImageUrl = (index: number) => {
     if (imageUrls.length > 1) {
       setImageUrls(imageUrls.filter((_, i) => i !== index))
+      setImageFiles(imageFiles.filter((_, i) => i !== index))
     }
   }
 
@@ -104,15 +125,41 @@ export default function CreateAuctionPage() {
       return;
     }
 
+    // Validate at least one image (URL or file)
     const validImageUrls = imageUrls.filter((url) => url.trim() !== "");
-    if (validImageUrls.length === 0) {
+    const validImageFiles = imageFiles.filter((file) => file !== null);
+
+    if (validImageUrls.length === 0 && validImageFiles.length === 0) {
       toast({
         title: "Validation Error",
-        description: "At least one image URL is required",
+        description: "At least one image (URL or file) is required",
         variant: "destructive",
       });
       return;
     }
+
+    // Convert files to base64
+    const imageDataPromises = imageUrls.map(async (url, index) => {
+      if (url.trim() !== "") {
+        return { url, position: index };
+      } else if (imageFiles[index]) {
+        const file = imageFiles[index]!;
+        return new Promise<{ url: string; position: number }>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({ url: reader.result as string, position: index });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+      return null;
+    });
+
+    const imageDataResults = await Promise.all(imageDataPromises);
+    const finalImageData = imageDataResults
+      .filter((img): img is { url: string; position: number } => img !== null)
+      .map((img, idx) => ({ url: img.url, position: idx }));
 
     const shipping_price_normal = Math.round(Number.parseFloat(itemData.shipping_price_normal) * 100);
     const shipping_price_expedited = Math.round(Number.parseFloat(itemData.shipping_price_expedited) * 100);
@@ -242,10 +289,7 @@ export default function CreateAuctionPage() {
         shipping_price_expedited,
         shipping_time_days: Number(itemData.shipping_time_days),
         is_active: itemData.is_active,
-        images: validImageUrls.map((url, index) => ({
-          url,
-          position: index,
-        })),
+        images: finalImageData,
         base_price: starting_price, // Include base_price using starting_price
       };
   
@@ -437,19 +481,60 @@ export default function CreateAuctionPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Image URLs *</Label>
+                <Label>Images *</Label>
                 {imageUrls.map((url, index) => (
-                  <div key={index} className="flex gap-2">
-                    <Input
-                      placeholder="https://example.com/image.jpg"
-                      value={url}
-                      onChange={(e) => handleImageUrlChange(index, e.target.value)}
-                    />
-                    {imageUrls.length > 1 && (
-                      <Button type="button" variant="outline" size="icon" onClick={() => removeImageUrl(index)}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
+                  <div key={index} className="space-y-3 p-4 border rounded-lg bg-muted/50">
+                    <div className="flex gap-2 items-start">
+                      <div className="flex-1 space-y-2">
+                        <Label className="text-sm font-medium">
+                          Upload File
+                        </Label>
+                        <div className="flex gap-2 items-center">
+                          <input
+                            id={`image-file-${index}`}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleImageFileChange(index, e.target.files?.[0] || null)}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => document.getElementById(`image-file-${index}`)?.click()}
+                            className="w-full sm:w-auto"
+                          >
+                            Choose File
+                          </Button>
+                          {imageFiles[index] && (
+                            <span className="text-sm text-muted-foreground truncate">
+                              {imageFiles[index]?.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {imageUrls.length > 1 && (
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeImageUrl(index)}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="h-px bg-border flex-1" />
+                      <span className="text-xs text-muted-foreground">OR</span>
+                      <div className="h-px bg-border flex-1" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`image-url-${index}`} className="text-sm font-medium">
+                        Image URL
+                      </Label>
+                      <Input
+                        id={`image-url-${index}`}
+                        placeholder="https://example.com/image.jpg"
+                        value={url}
+                        onChange={(e) => handleImageUrlChange(index, e.target.value)}
+                      />
+                    </div>
                   </div>
                 ))}
                 <Button type="button" variant="outline" size="sm" onClick={addImageUrl}>
