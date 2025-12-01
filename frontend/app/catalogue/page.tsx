@@ -120,15 +120,10 @@ export default function CataloguePage() {
 
       // Convert AuctionItemSummary objects to items format
       const searchedItems = auctionSummaries.map((summary: any) => {
-        console.log('Processing summary:', summary);
-        console.log('Current bidding price:', summary.current_bidding_price, 'Type:', typeof summary.current_bidding_price);
-
         // The price comes as cents from backend, need to keep it as cents
         const basePrice = typeof summary.current_bidding_price === 'string'
           ? parseFloat(summary.current_bidding_price)
           : Number(summary.current_bidding_price) || 0;
-
-        console.log('Converted base price:', basePrice);
 
         return {
           id: summary.item_id,
@@ -334,7 +329,6 @@ export default function CataloguePage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {displayedItems.map((item) => {
-            console.log('Rendering item:', item.title, 'base_price:', item.base_price, 'type:', typeof item.base_price);
             const hasId = item.id != null;
             return (
               <Card key={`${item.id ?? item.title}-${item.category_id}`} className="overflow-hidden">
