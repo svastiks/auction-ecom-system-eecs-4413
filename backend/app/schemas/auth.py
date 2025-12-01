@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
 import uuid
+from app.schemas.address import AddressCreate
 
 # Base schemas
 class UserBase(BaseModel):
@@ -14,6 +15,7 @@ class UserBase(BaseModel):
 # Authentication schemas
 class UserSignUp(UserBase):
     password: str = Field(..., min_length=8, max_length=100, description="Password")
+    address: Optional[AddressCreate] = Field(None, description="User address (optional)")
 
 class UserLogin(BaseModel):
     username: str = Field(..., description="Username or email")

@@ -391,6 +391,7 @@ export interface SignupRequest {
   last_name: string;
   phone: string;
   password: string;
+  address?: AddressInput;
 }
 
 export interface AuthResponse {
