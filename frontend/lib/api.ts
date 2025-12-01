@@ -277,10 +277,13 @@ export const api = {
   
   getAuction: async (id: string | number) => {
     const auction = await apiRequest<Auction>(`/auction/${id}`);
-    // Transform to ensure id field exists
+    // Transform to ensure id field exists and handle numeric fields
     return {
       ...auction,
       id: (auction as any).auction_id || auction.id,
+      min_increment: Number(auction.min_increment) || 100, // Ensure it's a number, default to $1.00
+      starting_price: Number(auction.starting_price) || 0,
+      current_highest_bid: auction.current_highest_bid ? Number(auction.current_highest_bid) : undefined,
     } as Auction;
   },
   
@@ -326,11 +329,17 @@ export const api = {
     })) : [];
   },
   
-  createOrder: (data: OrderInput) =>
-    apiRequest<Order>('/orders', {
+  createOrder: async (data: OrderInput) => {
+    const order = await apiRequest<Order>('/orders', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+    // Transform to ensure id field exists
+    return {
+      ...order,
+      id: (order as any).order_id || order.id,
+    } as Order;
+  },
   
   getOrder: async (id: string | number) => {
     const order = await apiRequest<Order>(`/orders/${id}`);
