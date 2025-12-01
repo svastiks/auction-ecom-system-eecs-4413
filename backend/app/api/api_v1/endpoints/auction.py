@@ -31,6 +31,13 @@ from app.schemas.auction import (
 router = APIRouter()
 
 
+def _ensure_timezone_aware(dt: datetime) -> datetime:
+    """Ensure datetime is timezone-aware (UTC)."""
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def get_current_bidding_price(auction: Auction) -> Decimal:
     """Calculate current bidding price for an auction."""
     if not auction.bids:
@@ -43,9 +50,10 @@ def get_remaining_time(auction: Auction) -> Optional[int]:
     if auction.status != AuctionStatus.ACTIVE:
         return None
     now = datetime.now(timezone.utc)
-    if auction.end_time <= now:
+    end_time = _ensure_timezone_aware(auction.end_time)
+    if end_time <= now:
         return 0
-    return int((auction.end_time - now).total_seconds())
+    return int((end_time - now).total_seconds())
 
 
 # Auction Management Endpoints
@@ -218,12 +226,12 @@ async def get_auction_item_detail(
     UC2.2 & UC2.3: Get detailed information about a specific auctioned item.
     Displays full item details for bidding.
     """
-    auction = db.query(Auction).join(CatalogueItem).options(
+    auction = db.query(Auction).join(CatalogueItem, Auction.item_id == CatalogueItem.item_id).options(
         joinedload(Auction.item).joinedload(CatalogueItem.seller),
         joinedload(Auction.item).joinedload(CatalogueItem.category),
         joinedload(Auction.item).joinedload(CatalogueItem.images),
         joinedload(Auction.bids).joinedload(Bid.bidder)
-    ).filter(Auction.item_id == item_id).first()
+    ).filter(CatalogueItem.item_id == item_id).first()
     
     if not auction:
         raise HTTPException(
@@ -282,7 +290,8 @@ async def get_auction(
     
     # Check if auction should be automatically ended
     now = datetime.now(timezone.utc)
-    if auction.status == AuctionStatus.ACTIVE and auction.end_time <= now:
+    end_time = _ensure_timezone_aware(auction.end_time)
+    if auction.status == AuctionStatus.ACTIVE and end_time <= now:
         auction.status = AuctionStatus.ENDED
         
         # Explicitly query bids to ensure they're loaded
@@ -362,7 +371,9 @@ async def place_bid(
     
     # Check if auction has ended (check end_time first and update status if needed)
     now = datetime.now(timezone.utc)
-    if auction.end_time <= now:
+    end_time = _ensure_timezone_aware(auction.end_time)
+    start_time = _ensure_timezone_aware(auction.start_time)
+    if end_time <= now:
         # Update status to ENDED if it hasn't been updated yet
         if auction.status != AuctionStatus.ENDED:
             auction.status = AuctionStatus.ENDED
@@ -384,14 +395,14 @@ async def place_bid(
         )
     
     # Auto-activate auction if start_time has passed
-    if auction.start_time <= now and auction.status == AuctionStatus.SCHEDULED:
+    if start_time <= now and auction.status == AuctionStatus.SCHEDULED:
         auction.status = AuctionStatus.ACTIVE
         db.commit()
     
     # Check auction status first
     if auction.status != AuctionStatus.ACTIVE:
         # If status is SCHEDULED and hasn't started, provide helpful message
-        if auction.status == AuctionStatus.SCHEDULED and auction.start_time > now:
+        if auction.status == AuctionStatus.SCHEDULED and start_time > now:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Auction has not started yet. It will start at {auction.start_time.strftime('%Y-%m-%d %H:%M:%S UTC')}"
@@ -566,7 +577,8 @@ async def get_auction_status(
     
     # Check if auction should be automatically ended
     now = datetime.now(timezone.utc)
-    if auction.status == AuctionStatus.ACTIVE and auction.end_time <= now:
+    end_time = _ensure_timezone_aware(auction.end_time)
+    if auction.status == AuctionStatus.ACTIVE and end_time <= now:
         auction.status = AuctionStatus.ENDED
         
         # Explicitly query bids to ensure they're loaded

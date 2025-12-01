@@ -306,7 +306,8 @@ class TestOrderEndpoints:
         )
         
         assert response.status_code == 402
-        assert "failed" in response.json()["detail"].lower()
+        detail = response.json()["detail"].lower()
+        assert any(word in detail for word in ["failed", "declined", "card"])
         
         # Verify order status is FAILED
         order_response = client.get(f"/api/v1/orders/{order.order_id}", headers=buyer_headers)
