@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api, Auction, Bid, ApiError } from '@/lib/api';
 import { useParams } from "next/navigation";
 import { useAuth } from '@/lib/auth-context';
@@ -25,6 +25,7 @@ export default function AuctionDetailPage() {
   const [bidAmount, setBidAmount] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isPlacingBid, setIsPlacingBid] = useState(false);
+  const userModifiedBidRef = useRef(false);
   const timeRemaining = useAuctionTimer(auction?.end_time || '');
 
   useEffect(() => {
@@ -41,12 +42,46 @@ export default function AuctionDetailPage() {
   useEffect(() => {
     if (!auction || auction.status !== 'ACTIVE') return;
 
-    const interval = setInterval(() => {
-      loadAuctionData();
-    }, 10000); // Poll every 10 seconds
+    let timeoutId: NodeJS.Timeout;
 
-    return () => clearInterval(interval);
-  }, [auction?.status, params.id]);
+    // Adaptive polling: faster when auction is ending soon
+    const scheduleNextPoll = () => {
+      if (!auction?.end_time) {
+        timeoutId = setTimeout(() => {
+          loadAuctionData();
+          scheduleNextPoll();
+        }, 3000);
+        return;
+      }
+
+      const endTime = new Date(auction.end_time).getTime();
+      const now = new Date().getTime();
+      const timeLeft = endTime - now;
+
+      let pollInterval: number;
+      // Less than 2 minutes: poll every 1 second for critical final moments
+      if (timeLeft < 2 * 60 * 1000) {
+        pollInterval = 1000;
+      }
+      // Less than 5 minutes: poll every 2 seconds
+      else if (timeLeft < 5 * 60 * 1000) {
+        pollInterval = 2000;
+      }
+      // Otherwise: poll every 3 seconds
+      else {
+        pollInterval = 3000;
+      }
+
+      timeoutId = setTimeout(() => {
+        loadAuctionData();
+        scheduleNextPoll(); // Recursively schedule next poll
+      }, pollInterval);
+    };
+
+    scheduleNextPoll();
+
+    return () => clearTimeout(timeoutId);
+  }, [auction?.status, auction?.end_time, params.id]);
 
   // When timer ends, reload auction data to get the winner
   useEffect(() => {
@@ -69,12 +104,14 @@ export default function AuctionDetailPage() {
       ]);
       setAuction(auctionData);
       setBids(bidsData);
-      
-      // Set suggested bid amount
-      const currentHighest = auctionData.current_highest_bid || auctionData.starting_price;
-      const minIncrement = auctionData.min_increment || 100; // Default to $1.00 if not provided
-      const minBid = currentHighest + minIncrement;
-      setBidAmount((minBid / 100).toFixed(2));
+
+      // Only set suggested bid amount if user hasn't modified it
+      if (!userModifiedBidRef.current) {
+        const currentHighest = auctionData.current_highest_bid || auctionData.starting_price;
+        const minIncrement = auctionData.min_increment || 100; // Default to $1.00 if not provided
+        const minBid = currentHighest + minIncrement;
+        setBidAmount((minBid / 100).toFixed(2));
+      }
     } catch (error) {
       console.error('Failed to load auction:', error);
       const message = error instanceof ApiError ? error.message : 'Failed to load auction';
@@ -130,7 +167,10 @@ export default function AuctionDetailPage() {
         title: 'Success',
         description: 'Bid placed successfully',
       });
-      
+
+      // Reset the flag so the bid amount updates with new minimum
+      userModifiedBidRef.current = false;
+
       // Reload auction data
       await loadAuctionData();
     } catch (error) {
@@ -426,7 +466,10 @@ export default function AuctionDetailPage() {
                       min={(currentHighest + minIncrement) / 100}
                       required
                       value={bidAmount}
-                      onChange={(e) => setBidAmount(e.target.value)}
+                      onChange={(e) => {
+                        setBidAmount(e.target.value);
+                        userModifiedBidRef.current = true;
+                      }}
                     />
                     <p className="text-xs text-muted-foreground">
                       Minimum bid: ${((currentHighest + minIncrement) / 100).toFixed(2)}

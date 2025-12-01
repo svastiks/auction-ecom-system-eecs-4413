@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_
 from fastapi import HTTPException, status
-from app.models.user import User, AuthSession, PasswordResetToken
+from app.models.user import User, AuthSession, PasswordResetToken, Address
 from app.core.security import verify_password, get_password_hash, create_access_token, generate_password_reset_token
 from app.core.config import settings
 from app.schemas.auth import UserSignUp, UserLogin
@@ -44,10 +44,26 @@ class AuthService:
             password_hash=hashed_password,
             is_active=True
         )
-        
+
         self.db.add(user)
         self.db.commit()
         self.db.refresh(user)
+
+        # Create address if provided
+        if user_data.address:
+            address = Address(
+                user_id=user.user_id,
+                street_line1=user_data.address.street_line1,
+                street_line2=user_data.address.street_line2,
+                city=user_data.address.city,
+                state_region=user_data.address.state_region,
+                postal_code=user_data.address.postal_code,
+                country=user_data.address.country,
+                phone=user_data.address.phone if hasattr(user_data.address, 'phone') and user_data.address.phone else user_data.phone,
+                is_default_shipping=user_data.address.is_default_shipping if hasattr(user_data.address, 'is_default_shipping') else True
+            )
+            self.db.add(address)
+            self.db.commit()
 
         # Create auth session first (to get session_id)
         session = AuthSession(
