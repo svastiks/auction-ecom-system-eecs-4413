@@ -2,7 +2,7 @@
 
 ## Tech Stack
 
-- Pyhton/FastAPI --> **Backend services**
+- Python/FastAPI --> **Backend services**
 - Postgres --> **Database**
 - Alembic --> **Database Migrations**
 - OpenAPI/Swagger Docs --> **API Documentation**
