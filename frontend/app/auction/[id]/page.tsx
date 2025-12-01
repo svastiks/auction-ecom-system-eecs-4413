@@ -307,7 +307,9 @@ export default function AuctionDetailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Current Highest Bid</p>
+                <p className="text-sm text-muted-foreground mb-1">
+                  {bids.length === 0 ? 'Starting Price' : 'Current Highest Bid'}
+                </p>
                 <p className="text-2xl font-bold">
                   ${(currentHighest / 100).toFixed(2)}
                 </p>
@@ -372,20 +374,32 @@ export default function AuctionDetailPage() {
               {hasEnded && !isWinner && !isSold && (
                 <div className="p-4 bg-muted rounded-lg text-center">
                   {isSeller ? (
-                    // Seller message: "Your item was bought by {buyer_first_name} for {price}"
-                    <p className="text-muted-foreground">
-                      Your item was bought by {winningBidderFirstNameCapitalized} for ${(currentHighest / 100).toFixed(0)}
-                    </p>
+                    // Seller message: Check if there were any bids
+                    bids.length > 0 ? (
+                      <p className="text-muted-foreground">
+                        Your item was bought by {winningBidderFirstNameCapitalized} for ${(currentHighest / 100).toFixed(0)}
+                      </p>
+                    ) : (
+                      <p className="text-muted-foreground">
+                        No bids were placed on this item
+                      </p>
+                    )
                   ) : userPlacedBids ? (
                     // User placed bids but lost: "You lost"
                     <p className="text-muted-foreground">
                       You lost
                     </p>
                   ) : (
-                    // User never placed a bid: "This item was sold for {price}"
-                    <p className="text-muted-foreground">
-                      This item was sold for ${(currentHighest / 100).toFixed(2)}
-                    </p>
+                    // User never placed a bid: Check if there were any bids at all
+                    bids.length > 0 ? (
+                      <p className="text-muted-foreground">
+                        This item was sold for ${(currentHighest / 100).toFixed(2)}
+                      </p>
+                    ) : (
+                      <p className="text-muted-foreground">
+                        This auction ended with no bids
+                      </p>
+                    )
                   )}
                 </div>
               )}
