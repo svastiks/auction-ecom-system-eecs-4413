@@ -260,9 +260,13 @@ export const api = {
   },
   
   searchAuctions: (keyword: string) =>
-    apiRequest<Auction[]>('/auction/search', {
+    apiRequest<any>('/auction/search', {
       method: 'POST',
-      body: JSON.stringify({ keyword }),
+      body: JSON.stringify({
+        keyword,
+        skip: 0,
+        limit: 100
+      }),
     }),
   
   getItemAuctions: async (itemId: string | number) => {

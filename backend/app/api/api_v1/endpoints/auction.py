@@ -127,7 +127,7 @@ async def search_auctions(
     Returns list of items up for auction matching the keywords.
     """
     # Base query with joins
-    query = db.query(Auction).join(CatalogueItem).join(User, CatalogueItem.seller_id == User.user_id).options(
+    query = db.query(Auction).join(CatalogueItem, Auction.item_id == CatalogueItem.item_id).join(User, CatalogueItem.seller_id == User.user_id).options(
         joinedload(Auction.item).joinedload(CatalogueItem.seller),
         joinedload(Auction.item).joinedload(CatalogueItem.category),
         joinedload(Auction.item).joinedload(CatalogueItem.images),
