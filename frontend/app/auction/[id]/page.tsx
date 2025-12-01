@@ -41,12 +41,46 @@ export default function AuctionDetailPage() {
   useEffect(() => {
     if (!auction || auction.status !== 'ACTIVE') return;
 
-    const interval = setInterval(() => {
-      loadAuctionData();
-    }, 10000); // Poll every 10 seconds
+    let timeoutId: NodeJS.Timeout;
 
-    return () => clearInterval(interval);
-  }, [auction?.status, params.id]);
+    // Adaptive polling: faster when auction is ending soon
+    const scheduleNextPoll = () => {
+      if (!auction?.end_time) {
+        timeoutId = setTimeout(() => {
+          loadAuctionData();
+          scheduleNextPoll();
+        }, 3000);
+        return;
+      }
+
+      const endTime = new Date(auction.end_time).getTime();
+      const now = new Date().getTime();
+      const timeLeft = endTime - now;
+
+      let pollInterval: number;
+      // Less than 2 minutes: poll every 1 second for critical final moments
+      if (timeLeft < 2 * 60 * 1000) {
+        pollInterval = 1000;
+      }
+      // Less than 5 minutes: poll every 2 seconds
+      else if (timeLeft < 5 * 60 * 1000) {
+        pollInterval = 2000;
+      }
+      // Otherwise: poll every 3 seconds
+      else {
+        pollInterval = 3000;
+      }
+
+      timeoutId = setTimeout(() => {
+        loadAuctionData();
+        scheduleNextPoll(); // Recursively schedule next poll
+      }, pollInterval);
+    };
+
+    scheduleNextPoll();
+
+    return () => clearTimeout(timeoutId);
+  }, [auction?.status, auction?.end_time, params.id]);
 
   // When timer ends, reload auction data to get the winner
   useEffect(() => {
