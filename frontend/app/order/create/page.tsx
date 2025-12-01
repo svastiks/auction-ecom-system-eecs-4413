@@ -112,9 +112,6 @@ export default function CreateOrderPage() {
         auction_id: auction.id, // Already a string UUID
       });
 
-      console.log('Order created:', order);
-      console.log('Order ID:', order.id);
-
       const orderId = order.id || (order as any).order_id;
 
       if (!orderId) {

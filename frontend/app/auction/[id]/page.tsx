@@ -67,8 +67,6 @@ export default function AuctionDetailPage() {
         api.getAuction(auctionId),
         api.getAuctionBids(auctionId),
       ]);
-      console.log('Auction data received:', auctionData);
-      console.log('min_increment value:', auctionData.min_increment, 'type:', typeof auctionData.min_increment);
       setAuction(auctionData);
       setBids(bidsData);
       

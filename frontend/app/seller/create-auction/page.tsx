@@ -295,10 +295,6 @@ export default function CreateAuctionPage() {
       let errorMessage = "Failed to create item and auction";
 
       if (error instanceof ApiError) {
-        console.log("API Error details:", error);
-        console.log("Error data:", error.data);
-        console.log("Error message:", error.message);
-
         // Handle FastAPI validation errors (array format)
         if (Array.isArray(error.data?.detail)) {
           errorMessage = error.data.detail
@@ -317,8 +313,6 @@ export default function CreateAuctionPage() {
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
-
-      console.log("Final error message:", errorMessage);
 
       toast({
         title: "Error",
