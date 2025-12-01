@@ -115,17 +115,37 @@ export default function AuthPage() {
   const handleForgotPassword = async () => {
     setIsLoading(true);
     try {
-      await api.forgotPassword(forgotEmail);
-      setForgotStep('reset');
-      toast({
-        title: 'Success',
-        description: 'Password reset token sent to your email',
-      });
+      const response = await api.forgotPassword(forgotEmail);
+
+      // Check if email was verified (token was generated)
+      const message = (response as any).message || '';
+
+      if (message.includes('Password reset token:')) {
+        // Extract token from the message
+        const token = message.replace('Password reset token:', '').trim();
+
+        // Log to console
+        console.log(`Email verified. Reset token is: ${token}`);
+
+        // Show success toast
+        toast({
+          title: 'Token sent',
+          description: 'Check console for reset token',
+        });
+
+        // Move to reset step
+        setForgotStep('reset');
+      } else {
+        // Email not found in database
+        toast({
+          title: 'Email not verified. Try Again.',
+          variant: 'destructive',
+        });
+      }
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : 'Failed to send reset email';
+      console.error('Forgot password error:', error);
       toast({
-        title: 'Error',
-        description: message,
+        title: 'Email not verified. Try Again.',
         variant: 'destructive',
       });
     } finally {
