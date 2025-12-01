@@ -72,7 +72,8 @@ export default function AuctionDetailPage() {
       
       // Set suggested bid amount
       const currentHighest = auctionData.current_highest_bid || auctionData.starting_price;
-      const minBid = currentHighest + auctionData.min_increment;
+      const minIncrement = auctionData.min_increment || 100; // Default to $1.00 if not provided
+      const minBid = currentHighest + minIncrement;
       setBidAmount((minBid / 100).toFixed(2));
     } catch (error) {
       console.error('Failed to load auction:', error);
@@ -104,7 +105,8 @@ export default function AuctionDetailPage() {
     }
 
     const currentHighest = auction.current_highest_bid || auction.starting_price;
-    const minBid = currentHighest + auction.min_increment;
+    const minIncrementValue = auction.min_increment || 100; // Default to $1.00 if not provided
+    const minBid = currentHighest + minIncrementValue;
 
     if (amount < minBid) {
       toast({
@@ -181,6 +183,7 @@ export default function AuctionDetailPage() {
   }
 
   const currentHighest = auction.current_highest_bid || auction.starting_price;
+  const minIncrement = auction.min_increment || 100; // Default to $1.00 if not provided
   const hasEnded = auction.status === 'ENDED' || timeRemaining.isEnded;
   const isWinner = hasEnded && auction.winning_bidder_id === user?.id;
   const isSeller = auction.item?.seller_id === user?.id;
@@ -395,7 +398,7 @@ export default function AuctionDetailPage() {
               <CardHeader>
                 <CardTitle className="text-lg">Place Your Bid</CardTitle>
                 <CardDescription>
-                  Min increment: ${(auction.min_increment / 100).toFixed(2)}
+                  Min increment: ${(minIncrement / 100).toFixed(2)}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -406,13 +409,13 @@ export default function AuctionDetailPage() {
                       id="bid-amount"
                       type="number"
                       step="0.01"
-                      min={(currentHighest + auction.min_increment) / 100}
+                      min={(currentHighest + minIncrement) / 100}
                       required
                       value={bidAmount}
                       onChange={(e) => setBidAmount(e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Minimum bid: ${((currentHighest + auction.min_increment) / 100).toFixed(2)}
+                      Minimum bid: ${((currentHighest + minIncrement) / 100).toFixed(2)}
                     </p>
                   </div>
                   <Button type="submit" className="w-full" disabled={isPlacingBid}>

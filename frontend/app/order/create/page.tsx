@@ -111,13 +111,19 @@ export default function CreateOrderPage() {
         shipping_address_id: selectedAddressId, // Already a string UUID
         auction_id: auction.id, // Already a string UUID
       });
-      
+
+      const orderId = order.id || (order as any).order_id;
+
+      if (!orderId) {
+        throw new Error('Order created but no ID was returned');
+      }
+
       toast({
         title: 'Success',
         description: 'Order created successfully',
       });
-      
-      router.push(`/order/${order.id}/payment`);
+
+      router.push(`/order/${orderId}/payment`);
     } catch (error) {
       console.error('Failed to create order:', error);
       let errorMessage = 'Failed to create order';

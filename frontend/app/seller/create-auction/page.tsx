@@ -40,7 +40,6 @@ export default function CreateAuctionPage() {
   const [auctionData, setAuctionData] = useState({
     starting_price: "",
     min_increment: "1",
-    start_time: "",
     end_time: "",
   })
 
@@ -52,14 +51,12 @@ export default function CreateAuctionPage() {
 
   useEffect(() => {
     loadCategories()
-    // Set default times
+    // Set default end time (7 days from now)
     const now = new Date()
-    const start = new Date(now.getTime() + 5 * 60000) // 5 minutes from now
     const end = new Date(now.getTime() + 7 * 24 * 60 * 60000) // 7 days from now
 
     setAuctionData((prev) => ({
       ...prev,
-      start_time: start.toISOString().slice(0, 16),
       end_time: end.toISOString().slice(0, 16),
     }))
   }, [])
@@ -96,7 +93,7 @@ export default function CreateAuctionPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-  
+
     // Validation - Item fields
     if (!itemData.title || !itemData.description || !itemData.category_id) {
       toast({
@@ -106,7 +103,7 @@ export default function CreateAuctionPage() {
       });
       return;
     }
-  
+
     const validImageUrls = imageUrls.filter((url) => url.trim() !== "");
     if (validImageUrls.length === 0) {
       toast({
@@ -116,14 +113,14 @@ export default function CreateAuctionPage() {
       });
       return;
     }
-  
+
     const shipping_price_normal = Math.round(Number.parseFloat(itemData.shipping_price_normal) * 100);
     const shipping_price_expedited = Math.round(Number.parseFloat(itemData.shipping_price_expedited) * 100);
-  
+
     // Validation - Auction fields
     const starting_price = Math.round(Number.parseFloat(auctionData.starting_price) * 100);
     const min_increment = Math.round(Number.parseFloat(auctionData.min_increment) * 100);
-  
+
     if (isNaN(starting_price) || starting_price <= 0) {
       toast({
         title: "Validation Error",
@@ -132,7 +129,7 @@ export default function CreateAuctionPage() {
       });
       return;
     }
-  
+
     if (min_increment < 100) {
       toast({
         title: "Validation Error",
@@ -141,30 +138,33 @@ export default function CreateAuctionPage() {
       });
       return;
     }
-  
-    // datetime-local returns local time without timezone, so we need to treat it as local and convert to UTC
-    // The input format is "YYYY-MM-DDTHH:mm" (local time)
-    // Parse datetime-local format correctly - ensure it's treated as local time
-    let startTimeLocal: Date;
+
+    // Automatically set start time to the next full minute
+    const nowLocal = new Date();
+    const startTimeLocal = new Date(nowLocal);
+    startTimeLocal.setMinutes(nowLocal.getMinutes() + 1);
+    startTimeLocal.setSeconds(0);
+    startTimeLocal.setMilliseconds(0);
+
+    // Parse end time from datetime-local input
     let endTimeLocal: Date;
-    
+
     try {
       // datetime-local format: "YYYY-MM-DDTHH:mm"
       // Create Date object treating it as local time
-      if (!auctionData.start_time || !auctionData.end_time) {
+      if (!auctionData.end_time) {
         toast({
           title: "Validation Error",
-          description: "Start time and end time are required",
+          description: "End time is required",
           variant: "destructive",
         });
         return;
       }
-      
+
       // Parse as local time by creating date components
-      const startParts = auctionData.start_time.split('T');
       const endParts = auctionData.end_time.split('T');
-      
-      if (startParts.length !== 2 || endParts.length !== 2) {
+
+      if (endParts.length !== 2) {
         toast({
           title: "Validation Error",
           description: "Invalid time format. Please use the date/time picker.",
@@ -172,21 +172,17 @@ export default function CreateAuctionPage() {
         });
         return;
       }
-      
-      const [startDate, startTime] = startParts;
+
       const [endDate, endTime] = endParts;
-      
-      const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
-      const [startHour, startMinute] = startTime.split(':').map(Number);
+
       const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
       const [endHour, endMinute] = endTime.split(':').map(Number);
-      
+
       // Create Date objects in local timezone
-      startTimeLocal = new Date(startYear, startMonth - 1, startDay, startHour, startMinute);
       endTimeLocal = new Date(endYear, endMonth - 1, endDay, endHour, endMinute);
-      
-      // Validate dates are valid
-      if (isNaN(startTimeLocal.getTime()) || isNaN(endTimeLocal.getTime())) {
+
+      // Validate date is valid
+      if (isNaN(endTimeLocal.getTime())) {
         toast({
           title: "Validation Error",
           description: "Invalid date/time values",
@@ -202,27 +198,17 @@ export default function CreateAuctionPage() {
       });
       return;
     }
-    
-    // Validate times are in the future (using local time comparison)
-    const nowLocal = new Date();
-    if (startTimeLocal <= nowLocal) {
-      toast({
-        title: "Validation Error",
-        description: "Start time must be in the future",
-        variant: "destructive",
-      });
-      return;
-    }
-  
+
+    // Validate end time is after start time
     if (startTimeLocal >= endTimeLocal) {
       toast({
         title: "Validation Error",
-        description: "End time must be after start time",
+        description: "End time must be after the auction start time (next minute)",
         variant: "destructive",
       });
       return;
     }
-  
+
     if (endTimeLocal <= nowLocal) {
       toast({
         title: "Validation Error",
@@ -307,11 +293,27 @@ export default function CreateAuctionPage() {
     } catch (error) {
       console.error("Failed to create item/auction:", error);
       let errorMessage = "Failed to create item and auction";
+
       if (error instanceof ApiError) {
-        errorMessage = error.message || error.data?.detail || error.data?.message || `Error: ${error.status}`;
+        // Handle FastAPI validation errors (array format)
+        if (Array.isArray(error.data?.detail)) {
+          errorMessage = error.data.detail
+            .map((e: any) => {
+              if (typeof e === 'string') return e;
+              const field = Array.isArray(e?.loc) && e.loc.length > 1
+                ? e.loc.slice(1).join('.')
+                : 'Field';
+              return `${field}: ${e?.msg || e?.message || 'Invalid value'}`;
+            })
+            .join(', ');
+        } else {
+          // Handle simple error messages
+          errorMessage = error.message || error.data?.detail || error.data?.message || `Error: ${error.status}`;
+        }
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
+
       toast({
         title: "Error",
         description: errorMessage,
@@ -500,28 +502,18 @@ export default function CreateAuctionPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="start_time">Start Time *</Label>
-                  <Input
-                    id="start_time"
-                    type="datetime-local"
-                    required
-                    value={auctionData.start_time}
-                    onChange={(e) => setAuctionData({ ...auctionData, start_time: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="end_time">End Time *</Label>
-                  <Input
-                    id="end_time"
-                    type="datetime-local"
-                    required
-                    value={auctionData.end_time}
-                    onChange={(e) => setAuctionData({ ...auctionData, end_time: e.target.value })}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="end_time">End Time *</Label>
+                <Input
+                  id="end_time"
+                  type="datetime-local"
+                  required
+                  value={auctionData.end_time}
+                  onChange={(e) => setAuctionData({ ...auctionData, end_time: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The auction will automatically start at the next minute after creation
+                </p>
               </div>
             </div>
 
