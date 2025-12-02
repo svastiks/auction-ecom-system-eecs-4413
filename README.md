@@ -59,7 +59,7 @@ cd auction-ecom-system-eecs-4413
 - `brew install docker`
 - Then, download the Docker application: https://www.docker.com/products/docker-desktop
 
-**Step 2: Start all Docker containers from the project root**
+**Step 2: Start all Docker containers from the project root (This will take around 30 seconds - 1 minute to build all three containers)**
 Note: The Dockerfiles are built such that they will install all dependencies, run migrations to populate the database (including seeding categories), and start both backend and frontend services.
 
 ```bash
