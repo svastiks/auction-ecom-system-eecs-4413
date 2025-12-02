@@ -69,9 +69,6 @@ logs
 *.db
 *.sqlite3
 
-# Docker
-.dockerignore
-
 # Coverage reports
 htmlcov/
 .coverage

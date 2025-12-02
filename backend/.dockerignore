@@ -1,0 +1,37 @@
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments (dependencies installed in container)
+.venv
+venv/
+ENV/
+env/
+
+# Test artifacts
+.pytest_cache
+.coverage
+htmlcov
+
+# Local databases
+*.db
+*.sqlite
+test.db
+
+# Logs and test files
+*.log
+jmeter.log
+*.jmx
+performance_results/
+results/
+
+# Git (not needed in container)
+.git
+.gitignore
+
+# OS files
+.DS_Store
+

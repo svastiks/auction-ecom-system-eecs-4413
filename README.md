@@ -46,26 +46,30 @@ For example:
 This approach ensures we can fully simulate both sides of the marketplace in a consistent, automated way inside Postman, verifying that authentication and endpoint flows all work correctly from end to end.
 
 ## Setup Instructions
-**Step 1: Clone the repository and cd into backend OR Extract the zip file and then cd into backend**
+**Step 1: Clone the repository OR Extract the zip file**
 
 If you decide to clone the repo, then follow the command below
 ```bash
 git clone https://github.com/svastiks/auction-ecom-system-eecs-4413.git
 
-cd backend
+cd auction-ecom-system-eecs-4413
 ```
+
 **Pre-req for step 2:**
 - `brew install docker`
 - Then, download the Docker application: https://www.docker.com/products/docker-desktop
 
-**Finally, step 2: Start the Docker containers**
-Note: The Dockerfile is built such that it will install the Python dependencies and run the migration to populate the database (so no manual SQL script is needed)
+**Step 2: Start all Docker containers from the project root**
+Note: The Dockerfiles are built such that they will install all dependencies, run migrations to populate the database (including seeding categories), and start both backend and frontend services.
 
 ```bash
 docker-compose up --build
 ```
-* Backend will be available at: http://127.0.0.1:8000
-* PostgreSQL will be available at: http://localhost:5434. Config is as follows:
+
+This will start:
+* **Backend** at: http://127.0.0.1:8000
+* **Frontend** at: http://localhost:3000
+* **PostgreSQL** at: http://localhost:5434. Config is as follows:
 ```
  POSTGRES_DB: auction_db
  POSTGRES_USER: auction_user
@@ -83,6 +87,7 @@ Expected output (along those lines):
 ```bash
 CONTAINER ID   IMAGE                                   STATUS       PORTS
 f381795e7b9f   auction-ecom-system-eecs-4413-backend  Up           0.0.0.0:8000->8000/tcp
+abc123def456   auction-ecom-system-eecs-4413-frontend  Up           0.0.0.0:3000->3000/tcp
 abe4291b927d   postgres:15                             Up           0.0.0.0:5434->5432/tcp
 ```
 
