@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import datetime
 from uuid import UUID
 from decimal import Decimal
 from enum import Enum
+import re
 
 
 class ShippingMethod(str, Enum):
@@ -80,7 +81,32 @@ class PaymentRequest(BaseModel):
     card_holder_name: str = Field(..., description="Card holder name")
     expiry_month: int = Field(..., ge=1, le=12, description="Expiry month (1-12)")
     expiry_year: int = Field(..., ge=2024, description="Expiry year")
-    cvv: str = Field(..., min_length=3, max_length=4, description="CVV code")
+    cvv: str = Field(..., description="CVV code")
+
+    @field_validator("card_number")
+    @classmethod
+    def card_number_exact_digits(cls, v: str) -> str:
+        # Extract only digits from the card number
+        digits = re.sub(r'\D', '', v)
+        if len(digits) != 16:
+            raise ValueError("Card number must be exactly 16 digits")
+        return digits
+
+    @field_validator("cvv")
+    @classmethod
+    def cvv_exact_digits(cls, v: str) -> str:
+        # Extract only digits from the CVV
+        digits = re.sub(r'\D', '', v)
+        if len(digits) != 3:
+            raise ValueError("CVV must be exactly 3 digits")
+        return digits
+
+    @field_validator("card_holder_name")
+    @classmethod
+    def card_holder_name_no_numbers(cls, v: str) -> str:
+        if re.search(r'\d', v):
+            raise ValueError("Card holder name cannot contain numbers")
+        return v
 
 
 class PaymentResponse(BaseModel):
