@@ -21,8 +21,8 @@ inputs) as well --> postman collection submitted with the zip ✅
 during the DockerFile setup, which will initialize the database (populate), the setup instructions
 below will elaborate ✅
 
-- An updated design document that explains any changes in the design, test cases, project plan, and
-team meeting logs ( You can go beyond 12 pages now) --> submitted on eclass ✅
+- An updated design document pdf that explains any changes in the design, test cases, project plan, and
+team meeting logs --> submitted on eclass ✅
 ```
 
 ## Postman Testing instructions (Very important read)
