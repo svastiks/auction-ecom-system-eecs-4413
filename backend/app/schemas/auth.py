@@ -22,12 +22,26 @@ class UserBase(BaseModel):
 
     @field_validator("phone")
     @classmethod
-    def phone_max_digits(cls, v: Optional[str]) -> Optional[str]:
+    def phone_exact_digits(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             # Extract only digits from the phone number
             digits = re.sub(r'\D', '', v)
-            if len(digits) > 10:
-                raise ValueError("Phone number cannot be more than 10 digits")
+            if len(digits) != 10:
+                raise ValueError("Phone number must be exactly 10 digits")
+        return v
+
+    @field_validator("first_name")
+    @classmethod
+    def first_name_no_numbers(cls, v: str) -> str:
+        if re.search(r'\d', v):
+            raise ValueError("First name cannot contain numbers")
+        return v
+
+    @field_validator("last_name")
+    @classmethod
+    def last_name_no_numbers(cls, v: str) -> str:
+        if re.search(r'\d', v):
+            raise ValueError("Last name cannot contain numbers")
         return v
 
 # Authentication schemas
