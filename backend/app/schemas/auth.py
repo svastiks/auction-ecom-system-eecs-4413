@@ -1,7 +1,8 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
 from datetime import datetime
 import uuid
+import re
 from app.schemas.address import AddressCreate
 
 # Base schemas
@@ -11,6 +12,23 @@ class UserBase(BaseModel):
     first_name: str = Field(..., min_length=1, max_length=80, description="First name")
     last_name: str = Field(..., min_length=1, max_length=80, description="Last name")
     phone: Optional[str] = Field(None, max_length=30, description="Phone number")
+
+    @field_validator("username")
+    @classmethod
+    def username_cannot_be_only_numbers(cls, v: str) -> str:
+        if v.isdigit():
+            raise ValueError("Username cannot be only numbers")
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def phone_max_digits(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            # Extract only digits from the phone number
+            digits = re.sub(r'\D', '', v)
+            if len(digits) > 10:
+                raise ValueError("Phone number cannot be more than 10 digits")
+        return v
 
 # Authentication schemas
 class UserSignUp(UserBase):
